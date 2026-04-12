@@ -108,7 +108,8 @@ function suggestAvailableSlugs(baseSlug) {
   return out.slice(0, 5);
 }
 
-app.use(express.json({ limit: "2mb" }));
+const JSON_BODY_LIMIT = process.env.JSON_BODY_LIMIT || "12mb";
+app.use(express.json({ limit: JSON_BODY_LIMIT }));
 
 app.post("/api/upload-logo", uploadLogo.single("logo"), (req, res) => {
   if (!req.file) {
@@ -316,6 +317,26 @@ app.get("/:slug", (req, res, next) => {
   if (/[.]/.test(s)) return next();
   if (RESERVED_SLUGS.has(s.toLowerCase())) return next();
   res.sendFile(path.join(root, "index.html"));
+});
+
+// Return JSON for body-parser errors so the client never gets HTML/plaintext on POST /api/*.
+app.use((err, req, res, next) => {
+  if (!err) return next();
+  if (err.type === "entity.too.large") {
+    return res.status(413).json({
+      error:
+        "Card data exceeds the server size limit. Reduce text/images or ask the host to raise JSON_BODY_LIMIT and nginx client_max_body_size.",
+    });
+  }
+  if (err instanceof SyntaxError && err.status === 400 && "body" in err) {
+    return res.status(400).json({ error: "Invalid JSON in request body." });
+  }
+  console.error(err);
+  if (!res.headersSent) {
+    const code =
+      typeof err.status === "number" && err.status >= 400 && err.status < 600 ? err.status : 500;
+    res.status(code).json({ error: err.message || "Server error" });
+  }
 });
 
 const PORT = Number(process.env.PORT) || 5000;

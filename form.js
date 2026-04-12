@@ -23,6 +23,30 @@
     return String(o).replace(/\/+$/, "");
   }
 
+  /** Avoid JSON.parse on HTML error pages (413/502) or empty bodies from proxies. */
+  function readJsonResponse(r) {
+    return r.text().then(function (text) {
+      var trimmed = (text || "").trim();
+      if (!trimmed) {
+        throw new Error(
+          "Empty response from server (HTTP " +
+            r.status +
+            "). Check that POST /api/publish reaches Node and reverse-proxy limits allow large requests."
+        );
+      }
+      try {
+        return JSON.parse(trimmed);
+      } catch (e) {
+        var head = trimmed.slice(0, 1);
+        var isHtml = head === "<";
+        var hint = isHtml
+          ? "The server returned an HTML error page. Common causes: request body too large (raise nginx client_max_body_size and JSON_BODY_LIMIT), or a 502 from the app process."
+          : trimmed.slice(0, 180);
+        throw new Error("Could not read server response (HTTP " + r.status + "). " + hint);
+      }
+    });
+  }
+
   function debounce(fn, ms) {
     return function () {
       var ctx = this;
@@ -95,7 +119,7 @@
     line.innerHTML = '<span class="text-muted">Checking…</span>';
     fetch("/api/slug-status?slug=" + encodeURIComponent(slug))
       .then(function (r) {
-        return r.json();
+        return readJsonResponse(r);
       })
       .then(function (data) {
         if (!data.valid) {
@@ -165,7 +189,7 @@
     var fd = new FormData();
     fd.append(fieldName, file);
     return fetch(path, { method: "POST", body: fd }).then(function (r) {
-      return r.json().then(function (j) {
+      return readJsonResponse(r).then(function (j) {
         if (!r.ok) throw new Error(j.error || "Upload failed");
         return j;
       });
@@ -446,7 +470,7 @@
   function loadPublishConfig() {
     fetch("/api/config")
       .then(function (r) {
-        return r.json();
+        return readJsonResponse(r);
       })
       .then(function (c) {
         resolvedPublicBase = (c.publicBaseUrl || "").trim().replace(/\/+$/, "");
@@ -568,7 +592,7 @@
 
     fetch("/api/slug-status?slug=" + encodeURIComponent(slug))
       .then(function (r) {
-        return r.json();
+        return readJsonResponse(r);
       })
       .then(function (st) {
         if (!st.valid || !st.available) {
@@ -587,7 +611,7 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({}),
         }).then(function (r) {
-          return r.json().then(function (j) {
+          return readJsonResponse(r).then(function (j) {
             if (!r.ok) throw new Error(j.error || "Could not start payment");
             return j;
           });
@@ -621,7 +645,7 @@
               }),
             })
               .then(function (r) {
-                return r.json().then(function (j) {
+                return readJsonResponse(r).then(function (j) {
                   if (r.status === 409) {
                     throw new Error((j.suggestions && j.suggestions.length ? "URL taken. Try: " + j.suggestions.join(", ") : null) || j.error || "URL taken");
                   }
@@ -699,7 +723,7 @@
       body: fd,
     })
       .then(function (r) {
-        return r.json().then(function (j) {
+        return readJsonResponse(r).then(function (j) {
           if (!r.ok) throw new Error(j.error || "Upload failed");
           return j;
         });
