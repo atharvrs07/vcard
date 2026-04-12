@@ -42,6 +42,10 @@
         var hint = isHtml
           ? "The server returned an HTML error page. Common causes: request body too large (raise nginx client_max_body_size and JSON_BODY_LIMIT), or a 502 from the app process."
           : trimmed.slice(0, 180);
+        if (r.status === 403) {
+          hint =
+            "HTTP 403 is not produced by this Node app — it comes from nginx, ModSecurity, Cloudflare WAF, or your host. Whitelist POST to /api/save-profile (and /api/*), or add a WAF exception for JSON bodies. If your server log shows no line for this POST, the request never reached Node.";
+        }
         throw new Error("Could not read server response (HTTP " + r.status + "). " + hint);
       }
     });
@@ -633,7 +637,7 @@
           name: (profile.companyname || "").trim() || "Digital vCard",
           description: "Publish your digital card",
           handler: function (response) {
-            fetch("/api/publish", {
+            fetch("/api/save-profile", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({

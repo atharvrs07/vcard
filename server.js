@@ -80,7 +80,7 @@ function slugExistsOnDisk(slug) {
   return fs.existsSync(profilePathForSlug(slug));
 }
 
-/** Canonical public URL for this deployment (e.g. https://ecard.xevonet.com). No trailing slash. */
+/** Canonical public URL for this deployment (e.g. https://vcard.xevonet.com). No trailing slash. */
 function getPublicBaseUrl(req) {
   const explicit = (process.env.PUBLIC_BASE_URL || process.env.SITE_URL || "").trim().replace(/\/+$/, "");
   if (explicit) return explicit;
@@ -110,6 +110,13 @@ function suggestAvailableSlugs(baseSlug) {
 
 const JSON_BODY_LIMIT = process.env.JSON_BODY_LIMIT || "12mb";
 app.use(express.json({ limit: JSON_BODY_LIMIT }));
+
+app.use(function (req, res, next) {
+  if (req.path.startsWith("/api") && req.method !== "GET" && req.method !== "HEAD") {
+    console.log(new Date().toISOString(), req.method, req.originalUrl || req.url);
+  }
+  next();
+});
 
 app.post("/api/upload-logo", uploadLogo.single("logo"), (req, res) => {
   if (!req.file) {
@@ -233,7 +240,7 @@ function verifyRazorpaySignature(orderId, paymentId, signature, secret) {
   }
 }
 
-app.post("/api/publish", (req, res) => {
+function handlePublish(req, res) {
   const secret = process.env.RAZORPAY_KEY_SECRET;
   const allowInsecure = process.env.ALLOW_INSECURE_PUBLISH === "1";
 
@@ -286,7 +293,12 @@ app.post("/api/publish", (req, res) => {
   }
 
   res.json({ ok: true, path: "/" + slug });
-});
+}
+
+/** Primary path — some WAFs block URLs containing "publish". */
+app.post("/api/publish", handlePublish);
+/** Neutral alias for the same handler (use from the client if you get HTTP 403 from the edge). */
+app.post("/api/save-profile", handlePublish);
 
 app.get("/api/profile/:slug", (req, res) => {
   const slug = (req.params.slug || "").trim().toLowerCase();
@@ -346,6 +358,6 @@ app.listen(PORT, () => {
   console.log(`Digital vCard listening on port ${PORT}`);
   console.log(`  Public URL: ${base}/  |  Builder: ${base}/form`);
   if (!process.env.PUBLIC_BASE_URL) {
-    console.log(`  Tip: set PUBLIC_BASE_URL=https://ecard.xevonet.com for production card links & QR codes.`);
+    console.log(`  Tip: set PUBLIC_BASE_URL=https://vcard.xevonet.com for production card links & QR codes.`);
   }
 });
