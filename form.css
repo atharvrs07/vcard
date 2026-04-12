@@ -1,0 +1,78 @@
+body {
+  background: #eef2f7;
+  min-height: 100vh;
+}
+
+.form-page {
+  padding-bottom: 2rem;
+}
+
+.form-page h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.preview-panel {
+  position: sticky;
+  top: 1rem;
+  background: #0f1419;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+}
+
+.preview-panel-header {
+  background: #1a2332;
+  color: #aab8cc;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.preview-frame-wrap {
+  height: min(78vh, 820px);
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.preview-frame-wrap iframe {
+  width: 100%;
+  height: 1200px;
+  border: none;
+  display: block;
+  transform: scale(0.92);
+  transform-origin: top center;
+}
+
+@media (max-width: 991px) {
+  .preview-panel {
+    position: relative;
+    top: 0;
+    margin-top: 1.5rem;
+  }
+
+  .preview-frame-wrap {
+    height: 65vh;
+  }
+
+  .preview-frame-wrap iframe {
+    transform: scale(1);
+    height: 900px;
+  }
+}
+
+.service-row .btn-remove {
+  margin-top: 1.75rem;
+}
+
+.theme-color-input {
+  width: 3rem;
+  height: 2.375rem;
+  padding: 0.125rem;
+  cursor: pointer;
+  border: 1px solid #ced4da;
+  border-radius: 0.25rem;
+  background: #fff;
+}

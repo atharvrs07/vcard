@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Digital vCard — Xevonet</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+  <style>
+    :root {
+      --accent: #38bdf8;
+      --accent-dim: rgba(56, 189, 248, 0.15);
+      --surface: rgba(15, 23, 42, 0.65);
+      --border: rgba(148, 163, 184, 0.12);
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "DM Sans", system-ui, -apple-system, sans-serif;
+      color: var(--text);
+      background: #020617;
+      overflow-x: hidden;
+    }
+
+    .bg-scene {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      background:
+        radial-gradient(ellipse 120% 80% at 50% -30%, rgba(56, 189, 248, 0.25), transparent 55%),
+        radial-gradient(ellipse 60% 50% at 100% 60%, rgba(99, 102, 241, 0.12), transparent 45%),
+        radial-gradient(ellipse 50% 40% at 0% 80%, rgba(14, 165, 233, 0.08), transparent 50%),
+        linear-gradient(180deg, #020617 0%, #0f172a 50%, #020617 100%);
+    }
+
+    .bg-scene::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%2394a3b8' fill-opacity='0.06'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+      opacity: 0.9;
+      pointer-events: none;
+    }
+
+    .wrap {
+      position: relative;
+      z-index: 1;
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: clamp(2rem, 6vw, 4rem) clamp(1.25rem, 4vw, 2rem) 3rem;
+    }
+
+    .nav-strip {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: clamp(2.5rem, 8vw, 5rem);
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      font-family: "Outfit", sans-serif;
+      font-weight: 600;
+      font-size: 1.05rem;
+      letter-spacing: -0.02em;
+      color: var(--text);
+    }
+
+    .brand-mark {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--accent), #6366f1);
+      display: grid;
+      place-items: center;
+      font-size: 1rem;
+      box-shadow: 0 8px 24px rgba(56, 189, 248, 0.25);
+    }
+
+    .nav-strip a.secondary-link {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.9rem;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+
+    .nav-strip a.secondary-link:hover {
+      color: var(--accent);
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: clamp(2rem, 5vw, 3rem);
+      align-items: center;
+    }
+
+    @media (min-width: 900px) {
+      .hero-grid {
+        grid-template-columns: 1.1fr 0.9fr;
+      }
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 1rem;
+    }
+
+    .eyebrow::before {
+      content: "";
+      width: 24px;
+      height: 2px;
+      background: linear-gradient(90deg, var(--accent), transparent);
+      border-radius: 2px;
+    }
+
+    h1 {
+      font-family: "Outfit", sans-serif;
+      font-weight: 700;
+      font-size: clamp(2.25rem, 5vw, 3.25rem);
+      line-height: 1.1;
+      letter-spacing: -0.03em;
+      margin: 0 0 1.25rem;
+      max-width: 18ch;
+    }
+
+    .gradient-text {
+      background: linear-gradient(120deg, #f8fafc 0%, #bae6fd 45%, #38bdf8 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    .lead {
+      font-size: 1.125rem;
+      line-height: 1.65;
+      color: var(--text-muted);
+      max-width: 36rem;
+      margin: 0 0 2rem;
+    }
+
+    .cta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      align-items: center;
+      margin-bottom: 2rem;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      font-family: inherit;
+      font-weight: 600;
+      font-size: 0.95rem;
+      text-decoration: none;
+      border-radius: 999px;
+      padding: 0.85rem 1.65rem;
+      border: none;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .btn:active {
+      transform: scale(0.98);
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #0ea5e9, #2563eb);
+      color: #fff;
+      box-shadow: 0 12px 32px rgba(14, 165, 233, 0.35);
+    }
+
+    .btn-primary:hover {
+      box-shadow: 0 16px 40px rgba(14, 165, 233, 0.45);
+    }
+
+    .btn-ghost {
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .btn-ghost:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(148, 163, 184, 0.25);
+    }
+
+    .micro {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      max-width: 28rem;
+      line-height: 1.5;
+    }
+
+    .micro code {
+      font-size: 0.78em;
+      padding: 0.15em 0.45em;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.06);
+      color: #e2e8f0;
+    }
+
+    .glass {
+      background: var(--surface);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: clamp(1.5rem, 4vw, 2rem);
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+    }
+
+    .glass h2 {
+      font-family: "Outfit", sans-serif;
+      font-size: 0.85rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin: 0 0 1.25rem;
+    }
+
+    .features {
+      display: grid;
+      gap: 1rem;
+    }
+
+    .feat {
+      display: flex;
+      gap: 1rem;
+      align-items: flex-start;
+      padding: 1rem 1.1rem;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      transition: background 0.2s, border-color 0.2s;
+    }
+
+    .feat:hover {
+      background: var(--accent-dim);
+      border-color: rgba(56, 189, 248, 0.2);
+    }
+
+    .feat-icon {
+      flex-shrink: 0;
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: rgba(56, 189, 248, 0.12);
+      color: var(--accent);
+      display: grid;
+      place-items: center;
+      font-size: 1.1rem;
+    }
+
+    .feat h3 {
+      margin: 0 0 0.25rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .feat p {
+      margin: 0;
+      font-size: 0.85rem;
+      line-height: 1.5;
+      color: var(--text-muted);
+    }
+
+    .footer-note {
+      margin-top: clamp(3rem, 8vw, 5rem);
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.8rem;
+      color: #64748b;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-scene" aria-hidden="true"></div>
+  <div class="wrap">
+    <header class="nav-strip">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"><i class="fa fa-id-card-o" style="color:#fff;"></i></span>
+        <span>Digital vCard <span style="opacity:0.5;font-weight:500;font-size:0.85em;">· Xevonet</span></span>
+      </div>
+      <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
+        <a class="secondary-link" href="https://xevonet.com" rel="noopener">xevonet.com</a>
+        <a class="secondary-link" href="/form" style="color:#e2e8f0;">Editor →</a>
+      </div>
+    </header>
+
+    <div class="hero-grid">
+      <div>
+        <p class="eyebrow">One link · Mobile-first</p>
+        <h1>Your <span class="gradient-text">visiting card</span>, always in your pocket</h1>
+        <p class="lead">
+          Build a polished profile with contact, services, payments, gallery, and videos — then publish to a clean URL you can share anywhere.
+        </p>
+        <div class="cta-row">
+          <a class="btn btn-primary" href="/form"><i class="fa fa-magic"></i> Build your card</a>
+          <a class="btn btn-ghost" href="/preview"><i class="fa fa-eye"></i> View sample</a>
+        </div>
+        <p class="micro">
+          Live at <code>ecard.xevonet.com/your-name</code> · QR codes open your card in one tap.
+        </p>
+      </div>
+
+      <aside class="glass" aria-label="Features">
+        <h2>What you get</h2>
+        <div class="features">
+          <div class="feat">
+            <div class="feat-icon"><i class="fa fa-mobile"></i></div>
+            <div>
+              <h3>Made for phones</h3>
+              <p>Readable layout, thumb-friendly actions, and a bottom nav that matches how people actually browse.</p>
+            </div>
+          </div>
+          <div class="feat">
+            <div class="feat-icon"><i class="fa fa-share-alt"></i></div>
+            <div>
+              <h3>Share in seconds</h3>
+              <p>One short link and a QR code — no app install required for your clients or friends.</p>
+            </div>
+          </div>
+          <div class="feat">
+            <div class="feat-icon"><i class="fa fa-lock"></i></div>
+            <div>
+              <h3>Publish when ready</h3>
+              <p>Preview while you edit, then go live through checkout when your profile is complete.</p>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <p class="footer-note">
+      <a href="https://xevonet.com" rel="noopener" style="color:#64748b;text-decoration:none;">xevonet.com</a>
+      · Card app: <code>ecard.xevonet.com</code>
+      · <a href="/form" style="color:#64748b;">Builder</a>
+      · <a href="/preview" style="color:#64748b;">Sample</a>
+    </p>
+  </div>
+</body>
+</html>

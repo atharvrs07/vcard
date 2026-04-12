@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>Sample card — Xevonet Digital vCard</title>
+  <meta name="description" content="Preview of a digital visiting card. Build yours at ecard.xevonet.com.">
+  <meta property="og:image" content="https://digitalvcard.online/api/uploads/1675945900_97852.jpg">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css" crossorigin="anonymous">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="main_bg">
+  <div class="profile_content pt-0 main_bg col-sm-12 mb-5">
+    <div class="row">
+      <div class="mx-auto p-2 col-md-4 main_card" id="main-card" data-theme-wrap>
+        <!-- Home / profile -->
+        <div id="step1" class="card mb-2 section-anchor">
+          <div class="card-body" id="views-row">
+            <div class="views-label" data-theme-bg>
+              <i class="fa fa-eye view_label_icon" aria-hidden="true"></i> Views: <b id="view-count">133</b>
+            </div>
+          </div>
+          <div class="card-body text-center">
+            <div class="logo-wrap mx-auto" style="max-width:180px;">
+              <img id="profile-logo" class="company-logo d-none" alt="" data-theme-border>
+              <div id="logo-placeholder" class="logo-placeholder" hidden><i class="fa fa-building-o fa-2x mb-2 d-block" aria-hidden="true"></i><span>Logo</span></div>
+            </div>
+            <hr class="colorgraph1" data-theme-border id="hr-main-title">
+            <h5 class="mt-2 manager_name font-weight-bold" id="person-name"></h5>
+            <h5 class="mt-2 manager_name" id="designation"></h5>
+            <div class="social-media mt-4 mb-3">
+              <a class="btn btn-sm mt-2" id="btn-tel" href="#" target="_blank" data-theme-btn><i class="fa fa-phone" aria-hidden="true"></i></a>
+              <a class="btn btn-sm ml-2 mt-2" id="btn-wa" href="#" target="_blank" rel="noopener" data-theme-btn><i class="fa fa-whatsapp" aria-hidden="true"></i></a>
+              <a class="btn btn-sm ml-2 mt-2" id="btn-map" href="#" target="_blank" rel="noopener" data-theme-btn><i class="fa fa-map-marker" aria-hidden="true"></i></a>
+              <a class="btn btn-sm ml-2 mt-2" id="btn-mail" href="#" target="_blank" rel="noopener" data-theme-btn><i class="fa fa-envelope" aria-hidden="true"></i></a>
+            </div>
+            <div class="row">
+              <div class="col-md-12">
+                <button type="button" id="btn-vcard" class="btn btn-sm mt-2 font-weight-600 pl-0 cursor-pointer" data-theme-btn>
+                  <i class="fa fa-address-book share_b"></i> Save Contact
+                </button>
+              </div>
+            </div>
+            <div class="card mt-4">
+              <div class="card-body text-center">
+                <div class="info">
+                  <div class="address"><p><i class="fa fa-map-marker" aria-hidden="true"></i> <span id="address-text"></span></p></div>
+                  <div class="email"><p><i class="fa fa-envelope" aria-hidden="true"></i> <a id="email-link" href="#" target="_blank"></a></p></div>
+                  <div class="phone p-0 mb-4 break_all"><a id="web-link" class="btn btn-link p-0 text-blue" href="#" target="_blank" rel="noopener"><i class="fa fa-globe" aria-hidden="true"></i> <span id="web-text"></span></a></div>
+                  <div class="row">
+                    <div class="col-sm-6">
+                      <div class="phone"><p><i class="fa fa-phone" aria-hidden="true"></i><span id="phone-line"></span></p></div>
+                    </div>
+                    <div class="col-sm-6">
+                      <div class="phone"><p><i class="fa fa-whatsapp" aria-hidden="true"></i><span id="wa-line"></span></p></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="social-media1" id="social-row"></div>
+                <div class="row">
+                  <div class="col-md-6">
+                    <div id="qrcode" class="qrcode d-flex justify-content-center"></div>
+                  </div>
+                  <div class="col-md-6">
+                    <button type="button" id="btn-qr-dl" class="btn btn-sm mt-3 font-weight-600 pl-0" data-theme-btn><i class="fa fa-download share_b"></i> Download QR Code</button>
+                    <button type="button" class="btn btn-sm mt-3 font-weight-600 pl-0" data-toggle="modal" data-target="#shareModal" data-theme-btn><i class="fa fa-share-alt share_b"></i> Share</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- About -->
+        <div id="step2" class="card mb-2 section-anchor">
+          <div class="card-body">
+            <h4 class="text-center">ABOUT US</h4>
+            <hr class="colorgraph1" data-theme-border>
+            <div class="company-address">
+              <div class="row col-md-12" id="about-row-company">
+                <label class="about_width_30 col-form-label font-weight-bold p-0 pb-2">Company Name</label>
+                <div class="width_5 text-center font-weight-bold">:</div>
+                <div class="width_66" id="about-company"></div>
+              </div>
+              <div class="row col-md-12" id="about-row-year">
+                <label class="about_width_30 col-form-label font-weight-bold p-0 pb-2">Year of Est</label>
+                <div class="width_5 text-center font-weight-bold">:</div>
+                <div class="width_66" id="year-est"></div>
+              </div>
+              <div class="row col-md-12" id="about-row-nature">
+                <label class="about_width_30 col-form-label font-weight-bold p-0 pb-2">Nature of Business</label>
+                <div class="width_5 text-center font-weight-bold">:</div>
+                <div class="width_66"><span id="nature-biz"></span></div>
+              </div>
+              <div class="col-md-12 pl-0 pr-0" id="about-row-body">
+                <div class="w-100 text-justify">
+                  <div class="p_custom" id="about-html"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Services (nav label on original site: "Products") -->
+        <div id="step3" class="card mb-2 section-anchor">
+          <div class="card-body">
+            <h4 class="text-center">SERVICES</h4>
+            <hr class="colorgraph1" data-theme-border>
+            <div id="services-list"></div>
+          </div>
+        </div>
+
+        <!-- Payments -->
+        <div id="step4" class="card mb-2 section-anchor">
+          <div class="card-body">
+            <h4 class="text-center">PAYMENTS</h4>
+            <hr class="colorgraph1" data-theme-border>
+            <div class="payment-details">
+              <h5>UPI Payments:</h5>
+              <div class="pt-2">
+                <div class="row col-md-12">
+                  <label class="width_30 col-form-label font-weight-bold p-0 pb-2">GooglePay No.</label>
+                  <div class="width_5 text-center font-weight-bold">:</div>
+                  <div class="width_70" id="gpay-no"></div>
+                </div>
+                <div class="row col-md-12">
+                  <label class="width_30 col-form-label font-weight-bold p-0 pb-2">Paytm No.</label>
+                  <div class="width_5 text-center font-weight-bold">:</div>
+                  <div class="width_70" id="paytm-no"></div>
+                </div>
+                <hr>
+                <div class="row mt-3 mb-3">
+                  <div class="col-md-6 text-center">
+                    <label class="width_100 col-form-label font-weight-bold p-0 pb-2">Paytm QR</label>
+                    <div class="width_100 paytm-qr-wrap"><img id="paytm-qr" class="qr_img d-none" alt="Paytm QR"></div>
+                    <div id="paytm-qr-ph" class="qr-placeholder small text-muted py-4 d-none">QR image preview</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Gallery -->
+        <div id="step5" class="card mb-2 section-anchor">
+          <div class="card-body">
+            <h4 class="text-center">GALLERY</h4>
+            <hr class="colorgraph1" data-theme-border>
+            <div class="row gallery-images" id="gallery-row"></div>
+          </div>
+        </div>
+
+        <!-- Videos -->
+        <div id="step6" class="card mb-2 section-anchor">
+          <div class="card-body">
+            <h4 class="text-center">VIDEOS</h4>
+            <hr class="colorgraph1" data-theme-border>
+            <div id="videos-row" class="row video-section"></div>
+          </div>
+        </div>
+
+        <!-- Enquiry -->
+        <div id="step7" class="card mb-1 section-anchor">
+          <div class="card-body">
+            <h4 class="text-center">ENQUIRY FORM</h4>
+            <hr class="colorgraph1" data-theme-border>
+            <form id="enquiry-form" novalidate>
+              <div class="form-group">
+                <input type="text" name="enqirer_name" id="enqirer_name" class="form-control input-lg" placeholder="Your Name" required tabindex="1">
+              </div>
+              <div class="form-group">
+                <input type="text" name="mobile_number" id="mobile_number" class="form-control input-lg" placeholder="Mobile Number" inputmode="numeric" minlength="10" maxlength="10" tabindex="3">
+              </div>
+              <div class="form-group">
+                <textarea name="messages" id="messages" class="form-control input-lg" placeholder="Enter Message" rows="4" tabindex="5"></textarea>
+              </div>
+              <button type="submit" class="btn btn-block btn-lg text-white" id="btn-send" data-theme-btn>SEND</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom nav — desktop labels -->
+  <nav class="navbar bg_dark fixed-bottom justify-content-between flex-nowrap flex-row">
+    <div id="navbarCollapse" class="collapse navbar-collapse show">
+      <ul class="nav navbar-nav flex-row mr-auto w-100 nav-justified webMenu">
+        <li class="nav-item cursor-pointer"><a class="nav-link nav-scroll" href="#step1" data-target="step1"><i class="fa fa-home" aria-hidden="true"></i>Home</a></li>
+        <li class="nav-item cursor-pointer"><a class="nav-link nav-scroll" href="#step2" data-target="step2"><i class="fa fa-book" aria-hidden="true"></i>About Us</a></li>
+        <li class="nav-item cursor-pointer"><a class="nav-link nav-scroll" href="#step3" data-target="step3"><i class="fa fa-shopping-bag" aria-hidden="true"></i>Products</a></li>
+        <li class="nav-item cursor-pointer"><a class="nav-link nav-scroll" href="#step4" data-target="step4"><i class="fa fa-money" aria-hidden="true"></i>Payments</a></li>
+        <li class="nav-item cursor-pointer"><a class="nav-link nav-scroll" href="#step5" data-target="step5"><i class="fa fa-picture-o" aria-hidden="true"></i>Gallery</a></li>
+        <li class="nav-item cursor-pointer"><a class="nav-link nav-scroll" href="#step6" data-target="step6"><i class="fa fa-video-camera" aria-hidden="true"></i>Videos</a></li>
+        <li class="nav-item cursor-pointer"><a class="nav-link nav-scroll" href="#step7" data-target="step7"><i class="fa fa-commenting" aria-hidden="true"></i>Enquiry</a></li>
+      </ul>
+      <ul class="nav navbar-nav flex-row mr-auto w-100 nav-justified mobileMenu">
+        <li class="nav-item cursor-pointer"><a class="nav-link nav-scroll" href="#step1" data-target="step1"><i class="fa fa-home" aria-hidden="true"></i></a></li>
+        <li class="nav-item cursor-pointer"><a class="nav-link nav-scroll" href="#step2" data-target="step2"><i class="fa fa-book" aria-hidden="true"></i></a></li>
+        <li class="nav-item cursor-pointer"><a class="nav-link nav-scroll" href="#step3" data-target="step3"><i class="fa fa-shopping-bag" aria-hidden="true"></i></a></li>
+        <li class="nav-item cursor-pointer"><a class="nav-link nav-scroll" href="#step4" data-target="step4"><i class="fa fa-money" aria-hidden="true"></i></a></li>
+        <li class="nav-item cursor-pointer"><a class="nav-link nav-scroll" href="#step5" data-target="step5"><i class="fa fa-picture-o" aria-hidden="true"></i></a></li>
+        <li class="nav-item cursor-pointer"><a class="nav-link nav-scroll" href="#step6" data-target="step6"><i class="fa fa-video-camera" aria-hidden="true"></i></a></li>
+        <li class="nav-item cursor-pointer"><a class="nav-link nav-scroll" href="#step7" data-target="step7"><i class="fa fa-commenting" aria-hidden="true"></i></a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- Share modal -->
+  <div class="modal fade" id="shareModal" tabindex="-1" role="dialog" aria-labelledby="shareModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="shareModalTitle">Share Profile</h5>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+        </div>
+        <div class="modal-body text-center py-5">
+          <p class="mb-3">Share my Digital vCard in your network.</p>
+          <div class="social-media1 mt-2" id="share-buttons"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast-msg" role="status" aria-live="polite" hidden></div>
+
+  <!-- Fallback when opening index.html over file:// (fetch to profile-data.json is blocked). Keep in sync with profile-data.json. -->
+  <script type="application/json" id="profile-embedded">
+{
+  "theme_color": "#1e90ff",
+  "companyname": "Financial Freedom Club",
+  "firstname": "Adarsh Sharma",
+  "designation": "Founder || Financial Freedom Coach || Certified Financial Planner || Retirement Advisor ",
+  "email": "adarsh@adarshsharma.in",
+  "phonenumber": "7900844844",
+  "countrycode": "+91",
+  "whatsupno": "7900844844",
+  "address": "70-A/11, Vaibhav, Sun City Vistaar, Bareilly - 243001",
+  "logo": "https://digitalvcard.online/api/uploads/1675945900_97852.jpg",
+  "establishedyear": "2016",
+  "otherbusiness": "Personal Finance",
+  "about": "<p class=\"MsoNormal\"><span><b><u>About Me</u></b></span><br></p><p class=\"MsoNormal\"><span>Hey there, I am Adarsh Sharma, a Financial Freedom Coach.&nbsp;</span></p><p class=\"MsoNormal\"><span><br></span></p><p class=\"MsoNormal\">I am here to help Early Stage and Mid-Level corporate professionals, professionals like doctors, and small &amp; medium businessmen achieve financial freedom without sacrificing their current lifestyle by helping them come out of debt trap and bringing Financial Stability using my 3-phase \"<b>Financial Freedom Blueprint</b>\".&nbsp;</p><p class=\"MsoNormal\"><br></p><p class=\"MsoNormal\">As of today, I manage an investment portfolio of more than 125 happy families. I have also guided more than 1000 people on Personal Finance by conducting various educational sessions.<br></p><p class=\"MsoNormal\"><span><br></span></p><p class=\"MsoNormal\">I am a CERTIFIED FINANCIAL PLANNER<sup>CM</sup> Professional from the <b><i>Financial Planning Standards Board - USA</i></b>, Certified Alternative Investment Manager® from the <b><i>Association of International Wealth Management of India</i></b>, Retirement Advisor registered with the <b><i>Pension Fund Regulatory &amp; Development Authority of India</i></b>, and Licentiate from the <b><i>Insurance Institute of India</i></b>.<br></p><p class=\"MsoNormal\"><br></p><p class=\"MsoNormal\"><span>Holding over 26 years of experience, I have worked with various renowned corporates including international assignments in Gulf and African regions.</span><br></p><p class=\"MsoNormal\"><span><br></span></p><p class=\"MsoNormal\"><span>I have a mission to help and empower more than 100,000 people to attain financial freedom using my unique model of the \"Financial Freedom Blueprint\".</span><span><br></span></p><p class=\"MsoNormal\"><br></p>",
+  "services": [
+    {"title": "Retirement Planning", "fileUrl": "https://digitalvcard.online/api/uploads/1676388766_99707.png"},
+    {"title": "Education Planning", "fileUrl": "https://digitalvcard.online/api/uploads/1676459167_85012.png"},
+    {"title": "Insurance Planning", "fileUrl": "https://digitalvcard.online/api/uploads/1676630060_74483.png"},
+    {"title": "WILL And Estate Planning", "fileUrl": "https://digitalvcard.online/api/uploads/1676630134_36820.png"},
+    {"title": "Financial Stability", "fileUrl": "https://digitalvcard.online/api/uploads/1676562685_4686.jpg"},
+    {"title": "Tax Planning", "fileUrl": "https://digitalvcard.online/api/uploads/1676630085_15037.png"},
+    {"title": "Vacation Planning", "fileUrl": "https://digitalvcard.online/api/uploads/1676630182_73717.png"},
+    {"title": "Debt Management", "fileUrl": "https://digitalvcard.online/api/uploads/1676467205_25111.png"},
+    {"title": "Investment Planning", "fileUrl": "https://digitalvcard.online/api/uploads/1676561061_25838.png"}
+  ],
+  "googlepay": "9837634370",
+  "paytm": "9837634370",
+  "paytm_QRcode": "https://digitalvcard.online/api/uploads/1676031939_8805.png",
+  "gallery_images": [{"src": "https://digitalvcard.online/api/uploads/1675957564_88765.png"}],
+  "videos": [],
+  "googlemap": "https://goo.gl/maps/9f3cNzKZH6ZwphhG6",
+  "website_url": "https://www.adarshsharma.in",
+  "facebook": "https://adarshsharma.in/fbvip",
+  "twitter": "https://adarshsharma.in/twitter",
+  "linkedin": "https://www.adarshsharma.in/linkedin",
+  "youtube": "",
+  "instagram": "",
+  "custom_links": [],
+  "profile_link": "https://ecard.xevonet.com/preview",
+  "view_count": 133
+}
+
+  </script>
+
+  <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" crossorigin="anonymous"></script>
+  <script src="app.js" defer></script>
+</body>
+</html>
