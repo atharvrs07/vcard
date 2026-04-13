@@ -36,6 +36,6 @@
   "youtube": "",
   "instagram": "",
   "custom_links": [],
-  "profile_link": "https://ecard.xevonet.com/preview",
+  "profile_link": "http://localhost:5000/preview",
   "view_count": 133
 }

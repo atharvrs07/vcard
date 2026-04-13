@@ -7,6 +7,45 @@
   };
 
   window.__latestProfile = null;
+  var hasPopulatedOnce = false;
+
+  function setPageLoading(isLoading) {
+    document.body.classList.toggle("app-loading", !!isLoading);
+  }
+
+  function emptyProfile() {
+    return {
+      theme_color: "#1e90ff",
+      companyname: "",
+      firstname: "",
+      designation: "",
+      email: "",
+      phonenumber: "",
+      countrycode: "+91",
+      whatsupno: "",
+      address: "",
+      logo: "",
+      establishedyear: "",
+      otherbusiness: "",
+      about: "",
+      services: [],
+      googlepay: "",
+      paytm: "",
+      paytm_QRcode: "",
+      gallery_images: [],
+      videos: [],
+      googlemap: "",
+      website_url: "",
+      facebook: "",
+      twitter: "",
+      linkedin: "",
+      youtube: "",
+      instagram: "",
+      custom_links: [],
+      profile_link: window.location.href,
+      view_count: 0,
+    };
+  }
 
   function showToast(msg) {
     var el = document.getElementById("toast");
@@ -228,6 +267,7 @@
   }
 
   function populate(p) {
+    p = p || emptyProfile();
     window.__latestProfile = p;
     var PV = !!p.__preview;
 
@@ -535,6 +575,10 @@
     }
 
     applyContentVisibility(p, PV);
+    if (!hasPopulatedOnce) {
+      hasPopulatedOnce = true;
+      setPageLoading(false);
+    }
   }
 
   function initNavScroll() {
@@ -649,6 +693,7 @@
     var preview = url.searchParams.get("preview") === "1";
 
     if (preview) {
+      setPageLoading(false);
       window.addEventListener("message", function (ev) {
         if (!ev.data || ev.data.type !== "profile-update" || !ev.data.profile) return;
         populate(ev.data.profile);
@@ -661,6 +706,7 @@
 
     var path = url.pathname.replace(/^\/+|\/+$/g, "");
     var firstSeg = path.split("/")[0];
+    setPageLoading(true);
     if (firstSeg) {
       fetch("/api/profile/" + encodeURIComponent(firstSeg))
         .then(function (r) {
@@ -671,8 +717,7 @@
         .then(populate)
         .catch(function () {
           showToast("Card not found");
-          var data = tryEmbedded();
-          if (data) populate(data);
+          populate(emptyProfile());
         });
       return;
     }
@@ -686,7 +731,10 @@
       .catch(function () {
         var data = tryEmbedded();
         if (data) populate(data);
-        else showToast("Add profile-embedded JSON or run a local server");
+        else {
+          showToast("Add profile-embedded JSON or run a local server");
+          populate(emptyProfile());
+        }
       });
   }
 

@@ -6,6 +6,7 @@ const express = require("express");
 const multer = require("multer");
 
 const app = express();
+app.disable("x-powered-by");
 
 if (process.env.TRUST_PROXY === "1" || process.env.TRUST_PROXY === "true") {
   app.set("trust proxy", 1);
@@ -161,10 +162,12 @@ app.get("/", (req, res) => {
 });
 
 app.get("/form", (req, res) => {
+  res.set("Cache-Control", "no-store");
   res.sendFile(path.join(root, "form.html"));
 });
 
 app.get("/preview", (req, res) => {
+  res.set("Cache-Control", "no-store");
   res.sendFile(path.join(root, "index.html"));
 });
 
@@ -301,6 +304,7 @@ app.post("/api/publish", handlePublish);
 app.post("/api/save-profile", handlePublish);
 
 app.get("/api/profile/:slug", (req, res) => {
+  res.set("Cache-Control", "no-store");
   const slug = (req.params.slug || "").trim().toLowerCase();
   if (!isValidSlug(slug)) {
     return res.status(400).json({ error: "Invalid slug" });
@@ -328,6 +332,7 @@ app.get("/:slug", (req, res, next) => {
   const s = req.params.slug;
   if (/[.]/.test(s)) return next();
   if (RESERVED_SLUGS.has(s.toLowerCase())) return next();
+  res.set("Cache-Control", "no-store");
   res.sendFile(path.join(root, "index.html"));
 });
 

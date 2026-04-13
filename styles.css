@@ -17,6 +17,12 @@ body.main_bg {
   color: #212529;
 }
 
+/* Prevent stale-card flash while profile JSON is loading on published URLs. */
+body.app-loading .profile_content,
+body.app-loading nav.fixed-bottom {
+  visibility: hidden;
+}
+
 /* Replaceable background — subtle mesh (original was mostly plain off-white) */
 .main_bg {
   background:
