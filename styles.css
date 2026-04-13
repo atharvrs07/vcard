@@ -78,6 +78,12 @@ body.app-loading nav.fixed-bottom {
   line-height: 1.35;
 }
 
+.manager_company {
+  font-size: 1rem;
+  color: #222;
+  line-height: 1.35;
+}
+
 .colorgraph1 {
   border: none;
   border-top: 2px solid var(--theme-color);

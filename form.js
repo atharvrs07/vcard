@@ -509,9 +509,16 @@
         updateCardUrlPreview();
         var priceEl = document.getElementById("publish-price-label");
         var warn = document.getElementById("publish-config-warn");
-        var paise = Number(c.amountPaise) || 45000;
-        var rupees = paise / 100;
-        if (priceEl) priceEl.textContent = "Price: ₹" + rupees + " (plus gateway fee as shown in Razorpay)";
+        var basePaise = Number(c.basePaise) || 300000;
+        var gstPercent = Number(c.gstPercent);
+        if (!Number.isFinite(gstPercent) || gstPercent < 0) gstPercent = 18;
+        var totalPaise = Number(c.amountPaise) || Math.round(basePaise * (1 + gstPercent / 100));
+        var baseRupees = (basePaise / 100).toFixed(2);
+        var totalRupees = (totalPaise / 100).toFixed(2);
+        if (priceEl) {
+          priceEl.textContent =
+            "Price: ₹" + baseRupees + " + " + gstPercent + "% GST = ₹" + totalRupees + " (plus gateway fee as shown in Razorpay)";
+        }
         if (warn) warn.hidden = !!c.configured;
       })
       .catch(function () {

@@ -183,8 +183,13 @@
       desEl.classList.toggle("d-none", !des);
       desEl.classList.remove("preview-placeholder");
     }
+    var coHeadEl = document.getElementById("company-highlight");
+    if (coHeadEl) {
+      coHeadEl.classList.toggle("d-none", !co);
+      coHeadEl.classList.remove("preview-placeholder");
+    }
     var hrMain = document.getElementById("hr-main-title");
-    if (hrMain) hrMain.classList.toggle("d-none", !fn && !des);
+    if (hrMain) hrMain.classList.toggle("d-none", !fn && !des && !co);
 
     var addrRow = document.querySelector(".info .address");
     if (addrRow) addrRow.classList.toggle("d-none", !addr);
@@ -329,7 +334,8 @@
     }
 
     setText("person-name", p.firstname, "Your name");
-    setText("designation", p.designation, "Your title or tagline");
+    setText("designation", p.designation, "Your designation");
+    setText("company-highlight", p.companyname, "Your company name");
 
     var cc = (p.countrycode || "+91").replace(/\s/g, "");
     var phone = (p.phonenumber || "").replace(/\s/g, "");

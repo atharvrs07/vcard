@@ -152,6 +152,15 @@ function getPublicBaseUrl(req) {
   return (req.protocol || "http") + "://" + (req.get("host") || "localhost");
 }
 
+function getPricing() {
+  const basePaise = Number(process.env.CARD_PRICE_PAISE) || 300000;
+  const gstPercent = Number(process.env.GST_PERCENT);
+  const gst = Number.isFinite(gstPercent) && gstPercent >= 0 ? gstPercent : 18;
+  const gstPaise = Math.round((basePaise * gst) / 100);
+  const totalPaise = basePaise + gstPaise;
+  return { basePaise, gstPercent: gst, gstPaise, totalPaise };
+}
+
 function suggestAvailableSlugs(baseSlug) {
   const out = [];
   const b = String(baseSlug || "card")
@@ -246,12 +255,15 @@ app.get("/preview", (req, res) => {
 
 function configHandler(req, res) {
   const keyId = process.env.RAZORPAY_KEY_ID || "";
-  const amountPaise = Number(process.env.CARD_PRICE_PAISE) || 45000;
+  const pricing = getPricing();
   const publicBase = (process.env.PUBLIC_BASE_URL || process.env.SITE_URL || "").trim().replace(/\/+$/, "");
   const mainSite = (process.env.MAIN_SITE_URL || "").trim().replace(/\/+$/, "");
   res.json({
     razorpayKeyId: keyId,
-    amountPaise: amountPaise,
+    amountPaise: pricing.totalPaise,
+    basePaise: pricing.basePaise,
+    gstPercent: pricing.gstPercent,
+    gstPaise: pricing.gstPaise,
     currency: "INR",
     configured: Boolean(keyId && process.env.RAZORPAY_KEY_SECRET),
     publicBaseUrl: publicBase,
@@ -294,8 +306,8 @@ async function razorpayCreateOrder(amountPaise, receipt) {
 
 async function createOrderHandler(req, res) {
   try {
-    const defaultPaise = Number(process.env.CARD_PRICE_PAISE) || 45000;
-    const amountPaise = Number(req.body.amountPaise) || defaultPaise;
+    const pricing = getPricing();
+    const amountPaise = Number(req.body.amountPaise) || pricing.totalPaise;
     if (amountPaise < 100) {
       return res.status(400).json({ error: "Invalid amount" });
     }
