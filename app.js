@@ -108,6 +108,16 @@
     return "https://" + u.replace(/^\/+/, "");
   }
 
+  function normalizeAssetUrl(u) {
+    var s = String(u || "").trim();
+    if (!s) return "";
+    // Compatibility for previously saved https://localhost assets in local http development.
+    if (/^https:\/\/(localhost|127\.0\.0\.1)(:\d+)?\//i.test(s) && window.location.protocol === "http:") {
+      return s.replace(/^https:\/\//i, "http://");
+    }
+    return s;
+  }
+
   function escapeHtml(s) {
     var d = document.createElement("div");
     d.textContent = s;
@@ -244,7 +254,7 @@
       document.getElementById("paytm-qr") && document.getElementById("paytm-qr").closest(".col-md-6");
     if (paytmQrCol) paytmQrCol.classList.toggle("d-none", !pqr);
 
-    var logoUrl = (p.logo || "").trim();
+    var logoUrl = normalizeAssetUrl(p.logo || "");
     var lw = document.querySelector("#step1 .logo-wrap");
     if (lw) lw.classList.toggle("d-none", !logoUrl);
 
@@ -382,7 +392,7 @@
 
     var qr = document.getElementById("paytm-qr");
     var qrPh = document.getElementById("paytm-qr-ph");
-    var paytmSrc = (p.paytm_QRcode || "").trim();
+    var paytmSrc = normalizeAssetUrl(p.paytm_QRcode || "");
     if (paytmSrc) {
       qr.src = paytmSrc;
       qr.classList.remove("d-none");
@@ -480,7 +490,7 @@
         encodeURIComponent("Enquiry: " + (svc.title || "")) +
         "&body=" +
         encodeURIComponent("Hello,\n\nI would like to know more about " + (svc.title || "") + ".\n");
-      var fileUrl = (svc.fileUrl || "").trim();
+      var fileUrl = normalizeAssetUrl(svc.fileUrl || "");
       var customLink = (svc.link || "").trim();
       var desc = (svc.description || "").trim();
       var btnHref = customLink ? normalizeUrl(customLink) : enq;
@@ -524,7 +534,7 @@
       var img = document.createElement("img");
       img.className = "img-responsive img-fluid galery_img";
       img.alt = "Image " + (idx + 1);
-      img.src = (g && g.src) || g || "";
+      img.src = normalizeAssetUrl((g && g.src) || g || "");
       col.appendChild(img);
       gallery.appendChild(col);
     });
@@ -535,7 +545,7 @@
       var videoList = p.videos || [];
       videoList.forEach(function (entry) {
         var url = typeof entry === "string" ? entry : entry && entry.url;
-        url = (url || "").trim();
+        url = normalizeAssetUrl(url || "");
         if (!url) return;
         var parsed = parseVideoUrl(url);
         if (!parsed) return;

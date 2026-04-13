@@ -20,6 +20,13 @@
 
   function getPublicOrigin() {
     var o = resolvedPublicBase || window.location.origin;
+    // Local dev guard: avoid https://localhost URLs when app runs on plain http.
+    if (
+      /^https:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(String(o).trim()) &&
+      /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(window.location.origin)
+    ) {
+      o = window.location.origin;
+    }
     return String(o).replace(/\/+$/, "");
   }
 
