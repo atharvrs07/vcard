@@ -16,6 +16,7 @@ const root = __dirname;
 const dataDir = path.join(root, "data");
 const uploadsDir = path.join(root, "uploads");
 const usersFile = path.join(root, "users.json");
+const indexHtmlPath = path.join(root, "index.html");
 
 function ensureStorage() {
   try {
@@ -150,6 +151,94 @@ function getPublicBaseUrl(req) {
   const explicit = (process.env.PUBLIC_BASE_URL || process.env.SITE_URL || "").trim().replace(/\/+$/, "");
   if (explicit) return explicit;
   return (req.protocol || "http") + "://" + (req.get("host") || "localhost");
+}
+
+function stripHtml(s) {
+  return String(s || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function escapeHtmlAttr(s) {
+  return String(s || "")
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function toAbsoluteUrl(req, raw) {
+  const s = String(raw || "").trim();
+  if (!s) return "";
+  if (/^https?:\/\//i.test(s)) return s;
+  if (s.startsWith("/")) return getPublicBaseUrl(req) + s;
+  return getPublicBaseUrl(req) + "/" + s.replace(/^\/+/, "");
+}
+
+function buildShareMeta(req, profile) {
+  const name = String((profile && profile.firstname) || "").trim();
+  const designation = String((profile && profile.designation) || "").trim();
+  const company = String((profile && profile.companyname) || "").trim();
+  const titleParts = [name, designation, company].filter(Boolean);
+  const title = titleParts.length ? titleParts.join(" — ") : "Digital vCard";
+  const about = stripHtml((profile && profile.about) || "");
+  const descCore = [designation, company].filter(Boolean).join(" • ") || "Digital visiting card";
+  const description = (descCore + (about ? " — " + about : "")).slice(0, 180);
+  const image = toAbsoluteUrl(req, (profile && profile.logo) || "");
+  return { title, description, image };
+}
+
+function renderCardHtmlForShare(req, profile) {
+  let html = fs.readFileSync(indexHtmlPath, "utf8");
+  const meta = buildShareMeta(req, profile);
+  html = html.replace(/<title>[\s\S]*?<\/title>/i, "<title>" + escapeHtmlAttr(meta.title) + "</title>");
+  html = html.replace(
+    /<meta name="description" content="[^"]*">/i,
+    '<meta name="description" content="' + escapeHtmlAttr(meta.description) + '">'
+  );
+
+  if (/<meta property="og:title" content="[^"]*">/i.test(html)) {
+    html = html.replace(
+      /<meta property="og:title" content="[^"]*">/i,
+      '<meta property="og:title" content="' + escapeHtmlAttr(meta.title) + '">'
+    );
+  } else {
+    html = html.replace(
+      /<meta name="description" content="[^"]*">/i,
+      function (m) {
+        return m + '\n  <meta property="og:title" content="' + escapeHtmlAttr(meta.title) + '">';
+      }
+    );
+  }
+  if (/<meta property="og:description" content="[^"]*">/i.test(html)) {
+    html = html.replace(
+      /<meta property="og:description" content="[^"]*">/i,
+      '<meta property="og:description" content="' + escapeHtmlAttr(meta.description) + '">'
+    );
+  } else {
+    html = html.replace(
+      /<meta property="og:title" content="[^"]*">/i,
+      function (m) {
+        return m + '\n  <meta property="og:description" content="' + escapeHtmlAttr(meta.description) + '">';
+      }
+    );
+  }
+  if (meta.image) {
+    if (/<meta property="og:image" content="[^"]*">/i.test(html)) {
+      html = html.replace(
+        /<meta property="og:image" content="[^"]*">/i,
+        '<meta property="og:image" content="' + escapeHtmlAttr(meta.image) + '">'
+      );
+    } else {
+      html = html.replace(
+        /<meta property="og:description" content="[^"]*">/i,
+        function (m) {
+          return m + '\n  <meta property="og:image" content="' + escapeHtmlAttr(meta.image) + '">';
+        }
+      );
+    }
+  } else {
+    html = html.replace(/\s*<meta property="og:image" content="[^"]*">\s*/i, "\n");
+  }
+  return html;
 }
 
 function getPricing() {
@@ -433,7 +522,15 @@ app.get("/:slug", (req, res, next) => {
   if (/[.]/.test(s)) return next();
   if (RESERVED_SLUGS.has(s.toLowerCase())) return next();
   res.set("Cache-Control", "no-store");
-  res.sendFile(path.join(root, "index.html"));
+  try {
+    const found = findUserBySlug(String(s).trim().toLowerCase());
+    if (found && found.user) {
+      return res.type("html").send(renderCardHtmlForShare(req, found.user));
+    }
+  } catch (e) {
+    console.error("share meta render failed:", e);
+  }
+  res.sendFile(indexHtmlPath);
 });
 
 // Return JSON for body-parser errors so client never gets HTML/plaintext on POST routes.

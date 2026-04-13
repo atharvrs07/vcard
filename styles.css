@@ -78,6 +78,12 @@ body.app-loading nav.fixed-bottom {
   line-height: 1.35;
 }
 
+#person-name {
+  font-size: 1.08rem;
+  color: #1f2937;
+  letter-spacing: 0.01em;
+}
+
 .manager_company {
   font-size: 1rem;
   color: #222;
