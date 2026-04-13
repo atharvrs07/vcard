@@ -15,7 +15,7 @@
   };
 
   var slugEditedByUser = false;
-  /** Set from /api/config when PUBLIC_BASE_URL is configured (production). */
+  /** Set from /config when PUBLIC_BASE_URL is configured (production). */
   var resolvedPublicBase = "";
 
   function getPublicOrigin() {
@@ -38,7 +38,7 @@
         throw new Error(
           "Empty response from server (HTTP " +
             r.status +
-            "). Check that POST /api/publish reaches Node and reverse-proxy limits allow large requests."
+            "). Check that POST /save-profile reaches Node and reverse-proxy limits allow large requests."
         );
       }
       try {
@@ -51,7 +51,7 @@
           : trimmed.slice(0, 180);
         if (r.status === 403) {
           hint =
-            "HTTP 403 is not produced by this Node app — it comes from nginx, ModSecurity, Cloudflare WAF, or your host. Whitelist POST to /api/save-profile (and /api/*), or add a WAF exception for JSON bodies. If your server log shows no line for this POST, the request never reached Node.";
+            "HTTP 403 is not produced by this Node app — it comes from nginx, ModSecurity, Cloudflare WAF, or your host. Whitelist POST to /save-profile (and related upload/order routes), or add a WAF exception for JSON bodies. If your server log shows no line for this POST, the request never reached Node.";
         }
         throw new Error("Could not read server response (HTTP " + r.status + "). " + hint);
       }
@@ -128,7 +128,7 @@
     }
 
     line.innerHTML = '<span class="text-muted">Checking…</span>';
-    fetch("/api/slug-status?slug=" + encodeURIComponent(slug))
+    fetch("/slug-status?slug=" + encodeURIComponent(slug))
       .then(function (r) {
         return readJsonResponse(r);
       })
@@ -419,7 +419,7 @@
       imgFile.addEventListener("change", function (ev) {
         var f = ev.target.files && ev.target.files[0];
         if (!f) return;
-        uploadToServer("/api/upload-image", "image", f)
+        uploadToServer("/upload-image", "image", f)
           .then(function (data) {
             var inp = row.querySelector(".svc-img");
             if (inp) inp.value = getPublicOrigin() + data.url;
@@ -479,7 +479,7 @@
   }
 
   function loadPublishConfig() {
-    fetch("/api/config")
+    fetch("/config")
       .then(function (r) {
         return readJsonResponse(r);
       })
@@ -525,7 +525,7 @@
         hint.textContent = "Uploading " + (idx + 1) + " / " + files.length + "…";
       }
       var f = files[idx];
-      uploadToServer("/api/upload-image", "image", f)
+      uploadToServer("/upload-image", "image", f)
         .then(function (data) {
           idx++;
           appendUrlToTextarea("gallery_urls", origin + data.url);
@@ -556,7 +556,7 @@
         hint.textContent = "Uploading " + (idx + 1) + " / " + files.length + "…";
       }
       var f = files[idx];
-      uploadToServer("/api/upload-video", "video", f)
+      uploadToServer("/upload-video", "video", f)
         .then(function (data) {
           idx++;
           appendUrlToTextarea("video_urls", origin + data.url);
@@ -601,7 +601,7 @@
       return;
     }
 
-    fetch("/api/slug-status?slug=" + encodeURIComponent(slug))
+    fetch("/slug-status?slug=" + encodeURIComponent(slug))
       .then(function (r) {
         return readJsonResponse(r);
       })
@@ -617,7 +617,7 @@
       })
       .then(function (profile) {
         if (!profile) return;
-        return fetch("/api/create-order", {
+        return fetch("/create-order", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({}),
@@ -644,7 +644,7 @@
           name: (profile.companyname || "").trim() || "Digital vCard",
           description: "Publish your digital card",
           handler: function (response) {
-            fetch("/api/save-profile", {
+            fetch("/save-profile", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -729,7 +729,7 @@
     var fd = new FormData();
     fd.append("logo", file);
     if (hint) hint.hidden = false;
-    fetch("/api/upload-logo", {
+    fetch("/upload-logo", {
       method: "POST",
       body: fd,
     })

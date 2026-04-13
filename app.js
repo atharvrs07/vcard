@@ -718,7 +718,7 @@
     var firstSeg = path.split("/")[0];
     setPageLoading(true);
     if (firstSeg) {
-      fetch("/api/profile/" + encodeURIComponent(firstSeg))
+      fetch("/profile/" + encodeURIComponent(firstSeg))
         .then(function (r) {
           if (r.status === 404) throw new Error("not found");
           if (!r.ok) throw new Error("bad status");

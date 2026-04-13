@@ -15,15 +15,71 @@ if (process.env.TRUST_PROXY === "1" || process.env.TRUST_PROXY === "true") {
 const root = __dirname;
 const dataDir = path.join(root, "data");
 const uploadsDir = path.join(root, "uploads");
+const usersFile = path.join(root, "users.json");
 
-function ensureDataDir() {
+function ensureStorage() {
   try {
     fs.mkdirSync(dataDir, { recursive: true });
     fs.mkdirSync(uploadsDir, { recursive: true });
+    if (!fs.existsSync(usersFile)) {
+      fs.writeFileSync(usersFile, "[]", "utf8");
+    }
   } catch (e) {}
 }
 
-ensureDataDir();
+ensureStorage();
+
+function readUsers() {
+  try {
+    const raw = fs.readFileSync(usersFile, "utf8");
+    const list = JSON.parse(raw);
+    return Array.isArray(list) ? list : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeUsers(users) {
+  fs.writeFileSync(usersFile, JSON.stringify(users, null, 2), "utf8");
+}
+
+function findUserBySlug(slug) {
+  const users = readUsers();
+  const idx = users.findIndex((u) => String((u && u.card_slug) || "").trim().toLowerCase() === slug);
+  if (idx < 0) return { users, idx: -1, user: null };
+  return { users, idx, user: users[idx] || null };
+}
+
+function migrateLegacyDataFilesIfNeeded() {
+  const users = readUsers();
+  if (users.length > 0) return;
+  let files = [];
+  try {
+    files = fs.readdirSync(dataDir).filter((name) => name.toLowerCase().endsWith(".json"));
+  } catch {
+    files = [];
+  }
+  if (!files.length) return;
+  const incoming = [];
+  files.forEach((name) => {
+    try {
+      const full = path.join(dataDir, name);
+      const raw = fs.readFileSync(full, "utf8");
+      const p = JSON.parse(raw);
+      if (!p || typeof p !== "object") return;
+      const slug = String(p.card_slug || name.replace(/\.json$/i, "")).trim().toLowerCase();
+      if (!isValidSlug(slug)) return;
+      p.card_slug = slug;
+      incoming.push(p);
+    } catch {}
+  });
+  if (incoming.length) {
+    writeUsers(incoming);
+    console.log(`Migrated ${incoming.length} legacy profile(s) from data/*.json to users.json`);
+  }
+}
+
+migrateLegacyDataFilesIfNeeded();
 
 const imageUpload = multer({
   storage: multer.diskStorage({
@@ -62,6 +118,16 @@ const RESERVED_SLUGS = new Set([
   "api",
   "card",
   "preview",
+  "profile",
+  "config",
+  "slug-status",
+  "create-order",
+  "save-profile",
+  "publish",
+  "upload-logo",
+  "upload-image",
+  "upload-video",
+  "health",
   "uploads",
   "node_modules",
   "favicon.ico",
@@ -73,15 +139,12 @@ function isValidSlug(s) {
   return /^[a-z0-9]([a-z0-9-]{0,30}[a-z0-9])?$/.test(t) && !RESERVED_SLUGS.has(t);
 }
 
-function profilePathForSlug(slug) {
-  return path.join(dataDir, slug + ".json");
+function slugExists(slug) {
+  const { idx } = findUserBySlug(slug);
+  return idx >= 0;
 }
 
-function slugExistsOnDisk(slug) {
-  return fs.existsSync(profilePathForSlug(slug));
-}
-
-/** Canonical public URL for this deployment (e.g. https://vcard.xevonet.com). No trailing slash. */
+/** Canonical public URL for this deployment (e.g. https://ecard.xevonet.com). No trailing slash. */
 function getPublicBaseUrl(req) {
   const explicit = (process.env.PUBLIC_BASE_URL || process.env.SITE_URL || "").trim().replace(/\/+$/, "");
   if (explicit) return explicit;
@@ -98,12 +161,12 @@ function suggestAvailableSlugs(baseSlug) {
   const prefix = b || "card";
   for (let n = 2; n <= 50 && out.length < 8; n++) {
     const cand = prefix + "-" + n;
-    if (isValidSlug(cand) && !slugExistsOnDisk(cand)) out.push(cand);
+    if (isValidSlug(cand) && !slugExists(cand)) out.push(cand);
   }
   let salt = 0;
   while (out.length < 5 && salt < 30) {
     const cand = prefix.slice(0, 20) + "-" + crypto.randomBytes(2).toString("hex");
-    if (isValidSlug(cand) && !slugExistsOnDisk(cand) && !out.includes(cand)) out.push(cand);
+    if (isValidSlug(cand) && !slugExists(cand) && !out.includes(cand)) out.push(cand);
     salt++;
   }
   return out.slice(0, 5);
@@ -113,35 +176,41 @@ const JSON_BODY_LIMIT = process.env.JSON_BODY_LIMIT || "12mb";
 app.use(express.json({ limit: JSON_BODY_LIMIT }));
 
 app.use(function (req, res, next) {
-  if (req.path.startsWith("/api") && req.method !== "GET" && req.method !== "HEAD") {
+  if (req.method !== "GET" && req.method !== "HEAD") {
     console.log(new Date().toISOString(), req.method, req.originalUrl || req.url);
   }
   next();
 });
 
-app.post("/api/upload-logo", uploadLogo.single("logo"), (req, res) => {
+function uploadLogoHandler(req, res) {
   if (!req.file) {
     return res.status(400).json({ error: "No image file received" });
   }
   const publicPath = "/uploads/" + req.file.filename;
   res.json({ url: publicPath });
-});
+}
+app.post("/upload-logo", uploadLogo.single("logo"), uploadLogoHandler);
+app.post("/api/upload-logo", uploadLogo.single("logo"), uploadLogoHandler);
 
-app.post("/api/upload-image", imageUpload.single("image"), (req, res) => {
+function uploadImageHandler(req, res) {
   if (!req.file) {
     return res.status(400).json({ error: "No image file received" });
   }
   res.json({ url: "/uploads/" + req.file.filename });
-});
+}
+app.post("/upload-image", imageUpload.single("image"), uploadImageHandler);
+app.post("/api/upload-image", imageUpload.single("image"), uploadImageHandler);
 
-app.post("/api/upload-video", videoUpload.single("video"), (req, res) => {
+function uploadVideoHandler(req, res) {
   if (!req.file) {
     return res.status(400).json({ error: "No video file received" });
   }
   res.json({ url: "/uploads/" + req.file.filename });
-});
+}
+app.post("/upload-video", videoUpload.single("video"), uploadVideoHandler);
+app.post("/api/upload-video", videoUpload.single("video"), uploadVideoHandler);
 
-app.get("/api/slug-status", (req, res) => {
+function slugStatusHandler(req, res) {
   const slug = (req.query.slug || "").trim().toLowerCase();
   if (!slug) {
     return res.json({ valid: false, available: false, suggestions: [] });
@@ -149,13 +218,15 @@ app.get("/api/slug-status", (req, res) => {
   if (!isValidSlug(slug)) {
     return res.json({ valid: false, available: false, suggestions: suggestAvailableSlugs("my-card") });
   }
-  const taken = slugExistsOnDisk(slug);
+  const taken = slugExists(slug);
   res.json({
     valid: true,
     available: !taken,
     suggestions: taken ? suggestAvailableSlugs(slug) : [],
   });
-});
+}
+app.get("/slug-status", slugStatusHandler);
+app.get("/api/slug-status", slugStatusHandler);
 
 app.get("/", (req, res) => {
   res.sendFile(path.join(root, "landing.html"));
@@ -171,7 +242,7 @@ app.get("/preview", (req, res) => {
   res.sendFile(path.join(root, "index.html"));
 });
 
-app.get("/api/config", (req, res) => {
+function configHandler(req, res) {
   const keyId = process.env.RAZORPAY_KEY_ID || "";
   const amountPaise = Number(process.env.CARD_PRICE_PAISE) || 45000;
   const publicBase = (process.env.PUBLIC_BASE_URL || process.env.SITE_URL || "").trim().replace(/\/+$/, "");
@@ -184,7 +255,9 @@ app.get("/api/config", (req, res) => {
     publicBaseUrl: publicBase,
     mainSiteUrl: mainSite,
   });
-});
+}
+app.get("/config", configHandler);
+app.get("/api/config", configHandler);
 
 app.get("/health", (req, res) => {
   res.type("text").send("ok");
@@ -217,7 +290,7 @@ async function razorpayCreateOrder(amountPaise, receipt) {
   return { orderId: data.id, amount: data.amount, currency: data.currency, keyId: keyId };
 }
 
-app.post("/api/create-order", async (req, res) => {
+async function createOrderHandler(req, res) {
   try {
     const defaultPaise = Number(process.env.CARD_PRICE_PAISE) || 45000;
     const amountPaise = Number(req.body.amountPaise) || defaultPaise;
@@ -230,7 +303,9 @@ app.post("/api/create-order", async (req, res) => {
     console.error(e);
     res.status(503).json({ error: String(e.message || e) });
   }
-});
+}
+app.post("/create-order", createOrderHandler);
+app.post("/api/create-order", createOrderHandler);
 
 function verifyRazorpaySignature(orderId, paymentId, signature, secret) {
   if (!orderId || !paymentId || !signature || !secret) return false;
@@ -275,7 +350,7 @@ function handlePublish(req, res) {
   }
 
   delete profile.__preview;
-  if (slugExistsOnDisk(slug)) {
+  if (slugExists(slug)) {
     return res.status(409).json({
       error: "This card URL is already taken.",
       suggestions: suggestAvailableSlugs(slug),
@@ -287,9 +362,10 @@ function handlePublish(req, res) {
   profile.card_slug = slug;
   profile.view_count = 0;
 
-  const file = profilePathForSlug(slug);
   try {
-    fs.writeFileSync(file, JSON.stringify(profile, null, 2), "utf8");
+    const users = readUsers();
+    users.push(profile);
+    writeUsers(users);
   } catch (e) {
     console.error(e);
     return res.status(500).json({ error: "Could not save card" });
@@ -298,33 +374,35 @@ function handlePublish(req, res) {
   res.json({ ok: true, path: "/" + slug });
 }
 
-/** Primary path — some WAFs block URLs containing "publish". */
-app.post("/api/publish", handlePublish);
-/** Neutral alias for the same handler (use from the client if you get HTTP 403 from the edge). */
+app.post("/save-profile", handlePublish);
+app.post("/publish", handlePublish);
 app.post("/api/save-profile", handlePublish);
+app.post("/api/publish", handlePublish);
 
-app.get("/api/profile/:slug", (req, res) => {
+function profileHandler(req, res) {
   res.set("Cache-Control", "no-store");
   const slug = (req.params.slug || "").trim().toLowerCase();
   if (!isValidSlug(slug)) {
     return res.status(400).json({ error: "Invalid slug" });
   }
-  const file = profilePathForSlug(slug);
-  if (!fs.existsSync(file)) {
+  const found = findUserBySlug(slug);
+  if (found.idx < 0 || !found.user) {
     return res.status(404).json({ error: "Card not found" });
   }
   try {
-    const raw = fs.readFileSync(file, "utf8");
-    const profile = JSON.parse(raw);
+    const profile = found.user;
     let vc = Number(profile.view_count);
     if (Number.isNaN(vc)) vc = 0;
     profile.view_count = vc + 1;
-    fs.writeFileSync(file, JSON.stringify(profile, null, 2), "utf8");
+    found.users[found.idx] = profile;
+    writeUsers(found.users);
     res.type("json").send(JSON.stringify(profile));
   } catch (e) {
     res.status(500).json({ error: "Read failed" });
   }
-});
+}
+app.get("/profile/:slug", profileHandler);
+app.get("/api/profile/:slug", profileHandler);
 
 app.use(express.static(root, { index: false }));
 
@@ -336,7 +414,7 @@ app.get("/:slug", (req, res, next) => {
   res.sendFile(path.join(root, "index.html"));
 });
 
-// Return JSON for body-parser errors so the client never gets HTML/plaintext on POST /api/*.
+// Return JSON for body-parser errors so client never gets HTML/plaintext on POST routes.
 app.use((err, req, res, next) => {
   if (!err) return next();
   if (err.type === "entity.too.large") {
@@ -363,6 +441,6 @@ app.listen(PORT, () => {
   console.log(`Digital vCard listening on port ${PORT}`);
   console.log(`  Public URL: ${base}/  |  Builder: ${base}/form`);
   if (!process.env.PUBLIC_BASE_URL) {
-    console.log(`  Tip: set PUBLIC_BASE_URL=https://vcard.xevonet.com for production card links & QR codes.`);
+    console.log(`  Tip: set PUBLIC_BASE_URL=https://ecard.xevonet.com for production card links & QR codes.`);
   }
 });
