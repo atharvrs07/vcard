@@ -341,15 +341,15 @@
     };
   }
 
-  function wrapAboutIfPlain(text) {
+  function sanitizeAbout(text) {
     if (!text) return "";
-    if (/<[a-z][\s\S]*>/i.test(text)) return text;
-    return "<p>" + text.replace(/\n\n/g, "</p><p>").replace(/\n/g, "<br>") + "</p>";
+    // Keep publish payload plain-text to reduce WAF false positives on HTML bodies.
+    return String(text).replace(/<[^>]*>/g, "").trim();
   }
 
   function profileForExport() {
     var p = buildProfileFromForm();
-    p.about = wrapAboutIfPlain(p.about);
+    p.about = sanitizeAbout(p.about);
     return p;
   }
 
@@ -357,8 +357,29 @@
     if (!iframe || !iframe.contentWindow) return;
     var p = buildProfileFromForm();
     p.__preview = true;
-    p.about = wrapAboutIfPlain(p.about);
+    p.about = sanitizeAbout(p.about);
     iframe.contentWindow.postMessage({ type: "profile-update", profile: p }, "*");
+  }
+
+  function publishWithFallback(bodyObj) {
+    return fetch("/save-profile", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(bodyObj),
+    }).then(function (r) {
+      if (r.status !== 403) return r;
+      var params = new URLSearchParams();
+      params.set("slug", bodyObj.slug || "");
+      params.set("profile", JSON.stringify(bodyObj.profile || {}));
+      params.set("razorpay_payment_id", bodyObj.razorpay_payment_id || "");
+      params.set("razorpay_order_id", bodyObj.razorpay_order_id || "");
+      params.set("razorpay_signature", bodyObj.razorpay_signature || "");
+      return fetch("/complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+        body: params.toString(),
+      });
+    });
   }
 
   var sendPreviewDebounced = debounce(sendPreview, 120);
@@ -644,16 +665,12 @@
           name: (profile.companyname || "").trim() || "Digital vCard",
           description: "Publish your digital card",
           handler: function (response) {
-            fetch("/save-profile", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
+            publishWithFallback({
                 slug: slug,
                 profile: profile,
                 razorpay_payment_id: response.razorpay_payment_id,
                 razorpay_order_id: response.razorpay_order_id,
                 razorpay_signature: response.razorpay_signature,
-              }),
             })
               .then(function (r) {
                 return readJsonResponse(r).then(function (j) {

@@ -383,7 +383,12 @@
     var aboutHtml = (p.about || "").trim();
     var aboutEl = document.getElementById("about-html");
     if (aboutEl) {
-      aboutEl.innerHTML = aboutHtml || "";
+      if (/<[a-z][\s\S]*>/i.test(aboutHtml)) {
+        aboutEl.innerHTML = aboutHtml;
+      } else {
+        aboutEl.textContent = aboutHtml;
+      }
+      aboutEl.style.whiteSpace = "pre-wrap";
       aboutEl.classList.remove("preview-placeholder");
     }
 

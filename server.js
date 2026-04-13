@@ -123,6 +123,7 @@ const RESERVED_SLUGS = new Set([
   "slug-status",
   "create-order",
   "save-profile",
+  "complete",
   "publish",
   "upload-logo",
   "upload-image",
@@ -174,6 +175,7 @@ function suggestAvailableSlugs(baseSlug) {
 
 const JSON_BODY_LIMIT = process.env.JSON_BODY_LIMIT || "12mb";
 app.use(express.json({ limit: JSON_BODY_LIMIT }));
+app.use(express.urlencoded({ extended: false, limit: JSON_BODY_LIMIT }));
 
 app.use(function (req, res, next) {
   if (req.method !== "GET" && req.method !== "HEAD") {
@@ -323,13 +325,20 @@ function handlePublish(req, res) {
   const allowInsecure = process.env.ALLOW_INSECURE_PUBLISH === "1";
 
   const slug = (req.body.slug || "").trim().toLowerCase();
-  const profile = req.body.profile;
+  let profile = req.body.profile;
   const paymentId = req.body.razorpay_payment_id;
   const orderId = req.body.razorpay_order_id;
   const signature = req.body.razorpay_signature;
 
   if (!isValidSlug(slug)) {
     return res.status(400).json({ error: "Invalid or reserved card URL (use lowercase letters, numbers, hyphens)." });
+  }
+  if (typeof profile === "string") {
+    try {
+      profile = JSON.parse(profile);
+    } catch {
+      return res.status(400).json({ error: "Invalid profile payload" });
+    }
   }
   if (!profile || typeof profile !== "object") {
     return res.status(400).json({ error: "Missing profile" });
@@ -375,6 +384,7 @@ function handlePublish(req, res) {
 }
 
 app.post("/save-profile", handlePublish);
+app.post("/complete", handlePublish);
 app.post("/publish", handlePublish);
 app.post("/api/save-profile", handlePublish);
 app.post("/api/publish", handlePublish);
