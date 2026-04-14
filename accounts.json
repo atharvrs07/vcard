@@ -23,7 +23,7 @@
     "cards": [
       {
         "slug": "test2",
-        "profile_link": "http://localhost:5000/test2",
+        "profile_link": "https://liquilink.in/vcard",
         "saved_at": "2026-04-14T07:37:43.381Z"
       }
     ],

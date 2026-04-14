@@ -22,6 +22,16 @@
     <button class="btn btn-outline-light btn-sm" id="btn-logout">Log out</button>
   </nav>
   <main class="container py-4">
+    <ul class="nav nav-tabs mb-3" id="dashboard-tabs" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="tab-overview" type="button" data-target="panel-overview">Overview</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-whitelabel" type="button" data-target="panel-whitelabel">Whitelabeling</button>
+      </li>
+    </ul>
+
+    <section id="panel-overview">
     <div class="panel p-4 mb-3">
       <h1 class="h4 mb-1" id="welcome-line">Welcome</h1>
       <p class="muted mb-0">Manage your card and track performance from one place.</p>
@@ -48,31 +58,46 @@
         <li class="muted">Loading...</li>
       </ul>
     </div>
-    <div class="panel p-4 mt-3">
-      <h2 class="h5 mb-3">Connect your domain</h2>
-      <p class="muted mb-3">Map a custom URL like <code>example.com/vcard</code> to one of your cards.</p>
-      <div id="domain-msg" class="alert" style="display:none;"></div>
-      <div class="form-row">
-        <div class="form-group col-md-4">
-          <label for="domain-card-slug">Card</label>
-          <select id="domain-card-slug" class="form-control"></select>
-        </div>
-        <div class="form-group col-md-4">
-          <label for="domain-input">Domain</label>
-          <input id="domain-input" class="form-control" placeholder="example.com">
-        </div>
-        <div class="form-group col-md-4">
-          <label for="domain-path-input">Path</label>
-          <input id="domain-path-input" class="form-control" value="vcard" placeholder="vcard">
-        </div>
-      </div>
-      <button class="btn btn-primary btn-sm" id="btn-domain-connect">Connect domain</button>
-      <button class="btn btn-outline-info btn-sm ml-2" id="btn-domain-refresh">Refresh status</button>
+    </section>
 
-      <hr class="bg-secondary">
-      <h3 class="h6">Connected / pending domains</h3>
-      <div id="domain-mappings-wrap" class="muted">No domain mapping yet.</div>
-    </div>
+    <section id="panel-whitelabel" class="d-none">
+      <div class="panel p-4 mb-3">
+        <h2 class="h5 mb-2">Custom Domain Mapping</h2>
+        <p class="muted mb-3">
+          Point your domain to this server, then map one card to a path like <code>/vcard</code> or <code>/ecard</code>.
+        </p>
+        <form id="whitelabel-form">
+          <div class="form-group">
+            <label for="wl-card">Select Card</label>
+            <select class="form-control" id="wl-card" required>
+              <option value="">Choose a card...</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="wl-domain">Custom Domain</label>
+            <input type="text" class="form-control" id="wl-domain" placeholder="example.com or cards.example.com" required>
+          </div>
+          <div class="form-group">
+            <label for="wl-path">Path on that domain</label>
+            <div class="input-group">
+              <div class="input-group-prepend"><span class="input-group-text">/</span></div>
+              <input type="text" class="form-control" id="wl-path" placeholder="vcard" required>
+            </div>
+            <small class="form-text text-muted">Use letters, numbers, and hyphens only.</small>
+          </div>
+          <div class="d-flex align-items-center">
+            <button type="submit" class="btn btn-primary btn-sm mr-2" id="wl-save-btn">Save Mapping</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="wl-clear-btn">Clear Mapping</button>
+          </div>
+        </form>
+      </div>
+      <div class="panel p-4">
+        <h3 class="h6 mb-2">Current Mapping</h3>
+        <p class="mb-2" id="wl-current">No mapping configured yet.</p>
+        <p class="mb-0 text-success d-none" id="wl-message"></p>
+        <p class="mb-0 text-danger d-none" id="wl-error"></p>
+      </div>
+    </section>
   </main>
   <script src="/dashboard.js"></script>
 </body>

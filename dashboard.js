@@ -1,8 +1,6 @@
 (function () {
   "use strict";
 
-  var cardsCache = [];
-
   function parseJson(r) {
     return r.text().then(function (t) {
       var data = {};
@@ -14,8 +12,18 @@
     });
   }
 
+  function showOnlyPanel(panelId) {
+    var overview = document.getElementById("panel-overview");
+    var wl = document.getElementById("panel-whitelabel");
+    if (!overview || !wl) return;
+    overview.classList.toggle("d-none", panelId !== "panel-overview");
+    wl.classList.toggle("d-none", panelId !== "panel-whitelabel");
+    document.querySelectorAll("#dashboard-tabs .nav-link").forEach(function (btn) {
+      btn.classList.toggle("active", btn.getAttribute("data-target") === panelId);
+    });
+  }
+
   function renderCards(cards) {
-    cardsCache = Array.isArray(cards) ? cards.slice() : [];
     var list = document.getElementById("cards-list");
     if (!list) return;
     list.innerHTML = "";
@@ -34,21 +42,41 @@
         "</a> · " + views + " views";
       list.appendChild(li);
     });
-    populateCardSelect(cardsCache);
   }
 
-  function populateCardSelect(cards) {
-    var sel = document.getElementById("domain-card-slug");
-    if (!sel) return;
-    sel.innerHTML = "";
-    if (!Array.isArray(cards) || cards.length === 0) {
-      sel.innerHTML = '<option value="">No cards yet</option>';
-      sel.disabled = true;
+  function setWlMessage(text, kind) {
+    var ok = document.getElementById("wl-message");
+    var err = document.getElementById("wl-error");
+    if (!ok || !err) return;
+    ok.classList.add("d-none");
+    err.classList.add("d-none");
+    if (!text) return;
+    if (kind === "error") {
+      err.textContent = text;
+      err.classList.remove("d-none");
       return;
     }
-    sel.disabled = false;
-    cards.forEach(function (c) {
-      var slug = (c && c.slug) || "";
+    ok.textContent = text;
+    ok.classList.remove("d-none");
+  }
+
+  function sanitizePathInput(v) {
+    return String(v || "")
+      .trim()
+      .toLowerCase()
+      .replace(/^\/+/, "")
+      .replace(/\/+$/, "");
+  }
+
+  var currentCards = [];
+
+  function fillCardSelect(cards) {
+    var sel = document.getElementById("wl-card");
+    if (!sel) return;
+    currentCards = Array.isArray(cards) ? cards.slice() : [];
+    sel.innerHTML = '<option value="">Choose a card...</option>';
+    currentCards.forEach(function (card) {
+      var slug = (card && card.slug) || "";
       if (!slug) return;
       var opt = document.createElement("option");
       opt.value = slug;
@@ -57,150 +85,108 @@
     });
   }
 
-  function showDomainMsg(text, ok) {
-    var box = document.getElementById("domain-msg");
-    if (!box) return;
-    box.style.display = "block";
-    box.className = "alert " + (ok ? "alert-success" : "alert-danger");
-    box.textContent = text;
-  }
-
-  function escapeHtml(s) {
-    return String(s || "")
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;");
-  }
-
-  function renderDomainMappings(mappings) {
-    var wrap = document.getElementById("domain-mappings-wrap");
-    if (!wrap) return;
-    if (!Array.isArray(mappings) || mappings.length === 0) {
-      wrap.className = "muted";
-      wrap.textContent = "No domain mapping yet.";
+  function updateCurrentMappingLine(state) {
+    var line = document.getElementById("wl-current");
+    if (!line) return;
+    if (!state || !state.customDomain || !state.customPath || !state.slug) {
+      line.textContent = "No mapping configured yet.";
       return;
     }
-    wrap.className = "";
-    wrap.innerHTML = mappings
-      .map(function (m) {
-        var statusBadge =
-          m.status === "verified"
-            ? '<span class="badge badge-success">Verified</span>'
-            : '<span class="badge badge-warning">Pending verification</span>';
-        var verifyBtn =
-          m.status === "verified"
-            ? ""
-            : '<button class="btn btn-sm btn-outline-info mr-2 btn-domain-verify" data-id="' +
-              escapeHtml(m.id) +
-              '">Verify DNS</button>';
-        return (
-          '<div class="border rounded p-3 mb-2">' +
-          '<div class="d-flex justify-content-between align-items-center mb-1">' +
-          '<strong>' +
-          escapeHtml(m.connect_url) +
-          "</strong>" +
-          statusBadge +
-          "</div>" +
-          '<div class="small mb-2">Card: <code>' +
-          escapeHtml(m.card_slug) +
-          "</code></div>" +
-          '<div class="small mb-2">Add TXT record: <code>' +
-          escapeHtml(m.verification_dns_name) +
-          "</code> = <code>" +
-          escapeHtml(m.verification_token) +
-          "</code></div>" +
-          '<div class="small mb-2">Point domain/CNAME target to: <code>' +
-          escapeHtml(m.dns_target) +
-          "</code></div>" +
-          '<div>' +
-          verifyBtn +
-          '<button class="btn btn-sm btn-outline-danger btn-domain-disconnect" data-id="' +
-          escapeHtml(m.id) +
-          '">Disconnect</button>' +
-          "</div>" +
-          "</div>"
-        );
-      })
-      .join("");
-
-    wrap.querySelectorAll(".btn-domain-verify").forEach(function (btn) {
-      btn.addEventListener("click", function () {
-        var id = btn.getAttribute("data-id");
-        verifyDomainMapping(id);
-      });
-    });
-    wrap.querySelectorAll(".btn-domain-disconnect").forEach(function (btn) {
-      btn.addEventListener("click", function () {
-        var id = btn.getAttribute("data-id");
-        disconnectDomainMapping(id);
-      });
-    });
+    var url = "https://" + state.customDomain + "/" + state.customPath;
+    line.innerHTML =
+      'Mapped card <b>' +
+      String(state.slug).replace(/</g, "&lt;") +
+      "</b> to <a href=\"" +
+      url.replace(/"/g, "&quot;") +
+      '" target="_blank" rel="noopener">' +
+      url.replace(/</g, "&lt;") +
+      "</a>";
   }
 
-  function loadDomainMappings() {
-    return fetch("/domain/status")
+  function applyWlState(state) {
+    var sel = document.getElementById("wl-card");
+    var domain = document.getElementById("wl-domain");
+    var path = document.getElementById("wl-path");
+    if (!sel || !domain || !path) return;
+    sel.value = (state && state.slug) || "";
+    domain.value = (state && state.customDomain) || "";
+    path.value = (state && state.customPath) || "";
+    updateCurrentMappingLine(state);
+  }
+
+  function loadWhitelabelState() {
+    return fetch("/whitelabel/state")
       .then(parseJson)
       .then(function (data) {
-        renderDomainMappings(data.mappings || []);
+        fillCardSelect(data.cards || []);
+        applyWlState(data.mapping || null);
+      })
+      .catch(function (e) {
+        setWlMessage(e.message || "Could not load whitelabel state.", "error");
       });
   }
 
-  function connectDomain() {
-    var slugEl = document.getElementById("domain-card-slug");
-    var domainEl = document.getElementById("domain-input");
-    var pathEl = document.getElementById("domain-path-input");
-    var payload = {
-      card_slug: (slugEl && slugEl.value) || "",
-      domain: (domainEl && domainEl.value) || "",
-      path: (pathEl && pathEl.value) || "vcard",
-    };
-    fetch("/domain/connect", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    })
-      .then(parseJson)
-      .then(function () {
-        showDomainMsg("Domain mapping saved. Add DNS records, then click Verify DNS.", true);
-        return loadDomainMappings();
+  function wireWhitelabelForm() {
+    var form = document.getElementById("whitelabel-form");
+    var clearBtn = document.getElementById("wl-clear-btn");
+    var pathEl = document.getElementById("wl-path");
+    if (!form || !clearBtn || !pathEl) return;
+
+    pathEl.addEventListener("input", function () {
+      pathEl.value = sanitizePathInput(pathEl.value).replace(/[^a-z0-9-]/g, "");
+    });
+
+    form.addEventListener("submit", function (ev) {
+      ev.preventDefault();
+      setWlMessage("", "");
+      var slug = (document.getElementById("wl-card").value || "").trim().toLowerCase();
+      var customDomain = (document.getElementById("wl-domain").value || "").trim().toLowerCase();
+      var customPath = sanitizePathInput(document.getElementById("wl-path").value);
+      fetch("/whitelabel/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug: slug, customDomain: customDomain, customPath: customPath }),
       })
-      .catch(function (e) {
-        showDomainMsg(e.message || "Could not connect domain", false);
-      });
+        .then(parseJson)
+        .then(function (data) {
+          applyWlState(data.mapping || null);
+          setWlMessage("Whitelabel mapping saved.");
+          return fetch("/my-cards").then(parseJson).then(function (cardsData) {
+            renderCards(cardsData.cards || []);
+          });
+        })
+        .catch(function (e) {
+          setWlMessage(e.message || "Could not save mapping.", "error");
+        });
+    });
+
+    clearBtn.addEventListener("click", function () {
+      setWlMessage("", "");
+      fetch("/whitelabel/clear", {
+        method: "POST",
+      })
+        .then(parseJson)
+        .then(function () {
+          applyWlState(null);
+          setWlMessage("Whitelabel mapping cleared.");
+          return fetch("/my-cards").then(parseJson).then(function (cardsData) {
+            renderCards(cardsData.cards || []);
+          });
+        })
+        .catch(function (e) {
+          setWlMessage(e.message || "Could not clear mapping.", "error");
+        });
+    });
   }
 
-  function verifyDomainMapping(id) {
-    fetch("/domain/verify", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mapping_id: id }),
-    })
-      .then(parseJson)
-      .then(function () {
-        showDomainMsg("Domain verified successfully.", true);
-        return loadDomainMappings();
-      })
-      .catch(function (e) {
-        showDomainMsg(e.message || "Verification failed", false);
-      });
-  }
+  document.querySelectorAll("#dashboard-tabs .nav-link").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      showOnlyPanel(btn.getAttribute("data-target"));
+    });
+  });
 
-  function disconnectDomainMapping(id) {
-    fetch("/domain/disconnect", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mapping_id: id }),
-    })
-      .then(parseJson)
-      .then(function () {
-        showDomainMsg("Domain mapping removed.", true);
-        return loadDomainMappings();
-      })
-      .catch(function (e) {
-        showDomainMsg(e.message || "Could not disconnect domain", false);
-      });
-  }
+  showOnlyPanel("panel-overview");
+  wireWhitelabelForm();
 
   fetch("/auth/me")
     .then(parseJson)
@@ -208,12 +194,11 @@
       var name = (data.account && (data.account.name || data.account.email)) || "there";
       var w = document.getElementById("welcome-line");
       if (w) w.textContent = "Welcome, " + name;
-      return fetch("/my-cards");
+      return fetch("/my-cards").then(parseJson);
     })
-    .then(parseJson)
     .then(function (data) {
       renderCards(data.cards || []);
-      return loadDomainMappings();
+      return loadWhitelabelState();
     })
     .catch(function () {
       window.location.href = "/login";
@@ -227,17 +212,6 @@
         .finally(function () {
           window.location.href = "/login";
         });
-    });
-  }
-
-  var connectBtn = document.getElementById("btn-domain-connect");
-  if (connectBtn) connectBtn.addEventListener("click", connectDomain);
-  var refreshBtn = document.getElementById("btn-domain-refresh");
-  if (refreshBtn) {
-    refreshBtn.addEventListener("click", function () {
-      loadDomainMappings().catch(function (e) {
-        showDomainMsg(e.message || "Could not refresh domain status", false);
-      });
     });
   }
 })();
