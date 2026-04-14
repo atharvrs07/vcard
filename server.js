@@ -935,7 +935,6 @@ app.post("/domain/connect", authRequired, (req, res) => {
     return res.status(409).json({ error: "This domain + path is already connected to another account." });
   }
 
-  const token = crypto.randomBytes(16).toString("hex");
   const nowIso = new Date().toISOString();
   const idx = rows.findIndex(
     (d) =>
@@ -948,9 +947,15 @@ app.post("/domain/connect", authRequired, (req, res) => {
   if (idx >= 0) {
     row = rows[idx];
     row.card_slug = slug;
-    row.verification_token = token;
-    row.status = "pending";
-    row.verified_at = null;
+    // Keep existing token so repeated "Connect domain" clicks are safe/idempotent.
+    if (!row.verification_token) {
+      row.verification_token = crypto.randomBytes(16).toString("hex");
+    }
+    // Only reset to pending if this mapping is not already verified.
+    if (row.status !== "verified") {
+      row.status = "pending";
+      row.verified_at = null;
+    }
     row.updated_at = nowIso;
     rows[idx] = row;
   } else {
@@ -960,7 +965,7 @@ app.post("/domain/connect", authRequired, (req, res) => {
       card_slug: slug,
       domain: domain,
       path: p,
-      verification_token: token,
+      verification_token: crypto.randomBytes(16).toString("hex"),
       status: "pending",
       verified_at: null,
       created_at: nowIso,
