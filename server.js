@@ -2,6 +2,7 @@ require("dotenv").config();
 const path = require("path");
 const fs = require("fs");
 const crypto = require("crypto");
+const dns = require("dns").promises;
 const express = require("express");
 const multer = require("multer");
 const nodemailer = require("nodemailer");
@@ -18,6 +19,7 @@ const dataDir = path.join(root, "data");
 const uploadsDir = path.join(root, "uploads");
 const usersFile = path.join(root, "users.json");
 const accountsFile = path.join(root, "accounts.json");
+const domainsFile = path.join(root, "domains.json");
 const indexHtmlPath = path.join(root, "index.html");
 const SESSION_COOKIE = "vcard_session";
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 14; // 14 days
@@ -36,6 +38,9 @@ function ensureStorage() {
     }
     if (!fs.existsSync(accountsFile)) {
       fs.writeFileSync(accountsFile, "[]", "utf8");
+    }
+    if (!fs.existsSync(domainsFile)) {
+      fs.writeFileSync(domainsFile, "[]", "utf8");
     }
   } catch (e) {}
 }
@@ -68,6 +73,20 @@ function readAccounts() {
 
 function writeAccounts(accounts) {
   fs.writeFileSync(accountsFile, JSON.stringify(accounts, null, 2), "utf8");
+}
+
+function readDomains() {
+  try {
+    const raw = fs.readFileSync(domainsFile, "utf8");
+    const list = JSON.parse(raw);
+    return Array.isArray(list) ? list : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeDomains(domains) {
+  fs.writeFileSync(domainsFile, JSON.stringify(domains, null, 2), "utf8");
 }
 
 function findAccountByEmail(email) {
@@ -168,6 +187,7 @@ const RESERVED_SLUGS = new Set([
   "dashboard",
   "analytics",
   "auth",
+  "domain",
   "my-cards",
   "analytics-data",
   "config",
@@ -236,7 +256,7 @@ function buildShareMeta(req, profile) {
   return { title, description, image };
 }
 
-function renderCardHtmlForShare(req, profile) {
+function renderCardHtmlForShare(req, profile, options) {
   let html = fs.readFileSync(indexHtmlPath, "utf8");
   const meta = buildShareMeta(req, profile);
   html = html.replace(/<title>[\s\S]*?<\/title>/i, "<title>" + escapeHtmlAttr(meta.title) + "</title>");
@@ -287,6 +307,15 @@ function renderCardHtmlForShare(req, profile) {
     }
   } else {
     html = html.replace(/\s*<meta property="og:image" content="[^"]*">\s*/i, "\n");
+  }
+  if (options && options.slugOverride) {
+    const script =
+      '<script>window.__cardSlugOverride=' + JSON.stringify(String(options.slugOverride || "").trim()) + ";</script>";
+    if (/<\/head>/i.test(html)) {
+      html = html.replace(/<\/head>/i, script + "\n</head>");
+    } else {
+      html = script + html;
+    }
   }
   return html;
 }
@@ -477,6 +506,72 @@ function getMailConfig() {
   const from = String(process.env.SMTP_FROM || user || "").trim();
   const ready = !!(host && port && user && pass && from);
   return { ready, host, port, secure, user, pass, from };
+}
+
+function normalizeDomainInput(raw) {
+  let d = String(raw || "").trim().toLowerCase();
+  d = d.replace(/^https?:\/\//i, "");
+  d = d.replace(/\/.*$/, "");
+  d = d.replace(/:\d+$/, "");
+  return d;
+}
+
+function normalizePathInput(raw) {
+  let p = String(raw || "").trim().toLowerCase();
+  p = p.replace(/^\/+|\/+$/g, "");
+  if (!p) p = "vcard";
+  return p;
+}
+
+function isValidCustomDomain(d) {
+  const t = normalizeDomainInput(d);
+  if (!t) return false;
+  if (t === "localhost" || /^\d+\.\d+\.\d+\.\d+$/.test(t)) return false;
+  return /^[a-z0-9][a-z0-9.-]*\.[a-z]{2,}$/i.test(t) && t.length <= 253;
+}
+
+function isValidCustomPath(p) {
+  const t = normalizePathInput(p);
+  return /^[a-z0-9]([a-z0-9-]{0,62}[a-z0-9])?$/.test(t);
+}
+
+function getPublicHostname() {
+  const explicit = (process.env.PUBLIC_BASE_URL || process.env.SITE_URL || "").trim();
+  if (explicit) {
+    try {
+      return new URL(explicit).hostname.toLowerCase();
+    } catch {}
+  }
+  return "";
+}
+
+function getPlatformHosts() {
+  const out = new Set(["localhost", "127.0.0.1"]);
+  const pubHost = getPublicHostname();
+  if (pubHost) out.add(pubHost);
+  return out;
+}
+
+function getCustomDomainTarget(req) {
+  const explicit = String(process.env.CUSTOM_DOMAIN_TARGET || "").trim().toLowerCase();
+  if (explicit) return explicit;
+  const pubHost = getPublicHostname();
+  if (pubHost) return pubHost;
+  const reqHost = String((req && req.hostname) || "").trim().toLowerCase();
+  return reqHost || "ecard.xevonet.com";
+}
+
+function accountOwnsSlug(account, slug) {
+  const s = String(slug || "").trim().toLowerCase();
+  if (!s) return false;
+  const cards = Array.isArray(account && account.cards) ? account.cards : [];
+  if (cards.some((c) => String((c && c.slug) || "").trim().toLowerCase() === s)) return true;
+  const users = readUsers();
+  return users.some(
+    (u) =>
+      String((u && u.card_slug) || "").trim().toLowerCase() === s &&
+      String((u && u.owner_account_id) || "") === String((account && account.id) || "")
+  );
 }
 
 let mailerCache = null;
@@ -787,6 +882,150 @@ app.get("/analytics-data", authRequired, (req, res) => {
   res.json({ totalCards, totalViews, cards });
 });
 
+function formatDomainMappingForClient(req, row) {
+  const domain = String((row && row.domain) || "").trim().toLowerCase();
+  const p = normalizePathInput((row && row.path) || "vcard");
+  const txtName = `_xevonet-card.${domain}`;
+  const connectUrl = "https://" + domain + "/" + p;
+  return {
+    id: row.id,
+    card_slug: row.card_slug,
+    domain: domain,
+    path: p,
+    status: row.status || "pending",
+    verification_token: row.verification_token || "",
+    verification_dns_name: txtName,
+    connect_url: connectUrl,
+    verified_at: row.verified_at || null,
+    created_at: row.created_at || null,
+    dns_target: getCustomDomainTarget(req),
+  };
+}
+
+app.get("/domain/status", authRequired, (req, res) => {
+  const accountId = String((req.account && req.account.id) || "");
+  const rows = readDomains()
+    .filter((d) => String((d && d.account_id) || "") === accountId)
+    .map((d) => formatDomainMappingForClient(req, d));
+  res.json({ mappings: rows });
+});
+
+app.post("/domain/connect", authRequired, (req, res) => {
+  const accountId = String((req.account && req.account.id) || "");
+  const domain = normalizeDomainInput(req.body.domain);
+  const p = normalizePathInput(req.body.path || "vcard");
+  const slug = String(req.body.card_slug || "").trim().toLowerCase();
+
+  if (!isValidCustomDomain(domain)) {
+    return res.status(400).json({ error: "Enter a valid domain, e.g. example.com." });
+  }
+  if (!isValidCustomPath(p)) {
+    return res.status(400).json({ error: "Path must use letters, numbers, or hyphens only." });
+  }
+  if (!isValidSlug(slug) || !accountOwnsSlug(req.account, slug)) {
+    return res.status(400).json({ error: "Select a valid card you own." });
+  }
+
+  const rows = readDomains();
+  const conflicting = rows.find((d) => {
+    const sameTarget = normalizeDomainInput(d.domain) === domain && normalizePathInput(d.path || "vcard") === p;
+    return sameTarget && String(d.account_id || "") !== accountId;
+  });
+  if (conflicting) {
+    return res.status(409).json({ error: "This domain + path is already connected to another account." });
+  }
+
+  const token = crypto.randomBytes(16).toString("hex");
+  const nowIso = new Date().toISOString();
+  const idx = rows.findIndex(
+    (d) =>
+      normalizeDomainInput(d.domain) === domain &&
+      normalizePathInput(d.path || "vcard") === p &&
+      String(d.account_id || "") === accountId
+  );
+
+  let row;
+  if (idx >= 0) {
+    row = rows[idx];
+    row.card_slug = slug;
+    row.verification_token = token;
+    row.status = "pending";
+    row.verified_at = null;
+    row.updated_at = nowIso;
+    rows[idx] = row;
+  } else {
+    row = {
+      id: crypto.randomBytes(12).toString("hex"),
+      account_id: accountId,
+      card_slug: slug,
+      domain: domain,
+      path: p,
+      verification_token: token,
+      status: "pending",
+      verified_at: null,
+      created_at: nowIso,
+      updated_at: nowIso,
+    };
+    rows.push(row);
+  }
+  writeDomains(rows);
+  res.json({ ok: true, mapping: formatDomainMappingForClient(req, row) });
+});
+
+app.post("/domain/verify", authRequired, async (req, res) => {
+  const accountId = String((req.account && req.account.id) || "");
+  const id = String(req.body.mapping_id || "").trim();
+  if (!id) return res.status(400).json({ error: "Mapping id is required." });
+
+  const rows = readDomains();
+  const idx = rows.findIndex((d) => String((d && d.id) || "") === id && String((d && d.account_id) || "") === accountId);
+  if (idx < 0) return res.status(404).json({ error: "Domain mapping not found." });
+
+  const row = rows[idx];
+  const domain = normalizeDomainInput(row.domain);
+  const txtName = `_xevonet-card.${domain}`;
+  const token = String(row.verification_token || "");
+
+  try {
+    const records = await dns.resolveTxt(txtName);
+    const values = records.map((parts) => parts.join("")).map((s) => String(s || "").trim());
+    const matched = values.some((v) => v === token);
+    if (!matched) {
+      return res.status(400).json({
+        error: "TXT record does not match yet. Wait for DNS propagation, then verify again.",
+      });
+    }
+    row.status = "verified";
+    row.verified_at = new Date().toISOString();
+    row.updated_at = row.verified_at;
+    rows[idx] = row;
+    writeDomains(rows);
+    res.json({ ok: true, mapping: formatDomainMappingForClient(req, row) });
+  } catch (e) {
+    return res.status(400).json({
+      error: "Could not read TXT record. Ensure DNS record exists and has propagated.",
+    });
+  }
+});
+
+app.post("/domain/disconnect", authRequired, (req, res) => {
+  const accountId = String((req.account && req.account.id) || "");
+  const id = String(req.body.mapping_id || "").trim();
+  if (!id) return res.status(400).json({ error: "Mapping id is required." });
+  const rows = readDomains();
+  const next = rows.filter((d) => !(String((d && d.id) || "") === id && String((d && d.account_id) || "") === accountId));
+  if (next.length === rows.length) return res.status(404).json({ error: "Domain mapping not found." });
+  writeDomains(next);
+  res.json({ ok: true });
+});
+
+app.get("/domain/help", authRequired, (req, res) => {
+  res.json({
+    dnsTarget: getCustomDomainTarget(req),
+    text: "Point your domain to this app, set TXT verification, then verify in dashboard.",
+  });
+});
+
 app.get("/", (req, res) => {
   res.sendFile(path.join(root, "landing.html"));
 });
@@ -994,6 +1233,33 @@ function profileHandler(req, res) {
   }
 }
 app.get("/profile/:slug", profileHandler);
+
+app.use((req, res, next) => {
+  if (req.method !== "GET" && req.method !== "HEAD") return next();
+  const host = String((req.hostname || "").trim().toLowerCase());
+  if (!host) return next();
+  if (getPlatformHosts().has(host)) return next();
+
+  const reqPath = String(req.path || "").trim().replace(/^\/+|\/+$/g, "").toLowerCase();
+  const mappings = readDomains();
+  const match = mappings.find((d) => {
+    return (
+      String((d && d.status) || "") === "verified" &&
+      normalizeDomainInput(d.domain) === host &&
+      normalizePathInput(d.path || "vcard") === reqPath
+    );
+  });
+  if (!match) return next();
+
+  const found = findUserBySlug(String(match.card_slug || "").trim().toLowerCase());
+  if (!found || !found.user) return next();
+  res.set("Cache-Control", "no-store");
+  return res.type("html").send(
+    renderCardHtmlForShare(req, found.user, {
+      slugOverride: String(match.card_slug || "").trim().toLowerCase(),
+    })
+  );
+});
 
 app.use(express.static(root, { index: false }));
 

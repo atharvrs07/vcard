@@ -727,9 +727,11 @@
 
     var path = url.pathname.replace(/^\/+|\/+$/g, "");
     var firstSeg = path.split("/")[0];
+    var slugOverride = (window.__cardSlugOverride && String(window.__cardSlugOverride).trim().toLowerCase()) || "";
     setPageLoading(true);
-    if (firstSeg) {
-      fetch("/profile/" + encodeURIComponent(firstSeg))
+    if (slugOverride || firstSeg) {
+      var slugToFetch = slugOverride || firstSeg;
+      fetch("/profile/" + encodeURIComponent(slugToFetch))
         .then(function (r) {
           if (r.status === 404) throw new Error("not found");
           if (!r.ok) throw new Error("bad status");

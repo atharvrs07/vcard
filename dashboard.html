@@ -48,6 +48,31 @@
         <li class="muted">Loading...</li>
       </ul>
     </div>
+    <div class="panel p-4 mt-3">
+      <h2 class="h5 mb-3">Connect your domain</h2>
+      <p class="muted mb-3">Map a custom URL like <code>example.com/vcard</code> to one of your cards.</p>
+      <div id="domain-msg" class="alert" style="display:none;"></div>
+      <div class="form-row">
+        <div class="form-group col-md-4">
+          <label for="domain-card-slug">Card</label>
+          <select id="domain-card-slug" class="form-control"></select>
+        </div>
+        <div class="form-group col-md-4">
+          <label for="domain-input">Domain</label>
+          <input id="domain-input" class="form-control" placeholder="example.com">
+        </div>
+        <div class="form-group col-md-4">
+          <label for="domain-path-input">Path</label>
+          <input id="domain-path-input" class="form-control" value="vcard" placeholder="vcard">
+        </div>
+      </div>
+      <button class="btn btn-primary btn-sm" id="btn-domain-connect">Connect domain</button>
+      <button class="btn btn-outline-info btn-sm ml-2" id="btn-domain-refresh">Refresh status</button>
+
+      <hr class="bg-secondary">
+      <h3 class="h6">Connected / pending domains</h3>
+      <div id="domain-mappings-wrap" class="muted">No domain mapping yet.</div>
+    </div>
   </main>
   <script src="/dashboard.js"></script>
 </body>

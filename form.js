@@ -747,6 +747,29 @@
             email: (profile.email || "").trim(),
             contact: ((profile.countrycode || "") + (profile.phonenumber || "")).replace(/\D/g, ""),
           },
+          // Keep UPI visible and prioritized in Checkout.
+          method: {
+            upi: true,
+            card: true,
+            netbanking: true,
+            wallet: true,
+            paylater: true,
+            emi: true,
+          },
+          config: {
+            display: {
+              blocks: {
+                upi: {
+                  name: "Pay via UPI",
+                  instruments: [{ method: "upi" }],
+                },
+              },
+              sequence: ["block.upi", "block.card", "block.netbanking", "block.wallet"],
+              preferences: {
+                show_default_blocks: true,
+              },
+            },
+          },
           theme: { color: themeHex },
         };
         var rzp = new window.Razorpay(opts);
