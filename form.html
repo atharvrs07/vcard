@@ -17,6 +17,13 @@
   <div class="container-fluid">
     <div class="row">
       <div class="col-lg-7">
+        <div class="alert alert-info d-flex justify-content-between align-items-center" id="account-banner" role="status">
+          <span id="account-banner-text">Signed in</span>
+          <div>
+            <a href="/dashboard" class="btn btn-sm btn-outline-primary mr-2">Dashboard</a>
+            <button type="button" id="btn-logout" class="btn btn-sm btn-outline-secondary">Log out</button>
+          </div>
+        </div>
         <h1 class="mb-3">Card details</h1>
         <p class="text-muted small">Fields map to the card template. Only filled fields appear on the published card.</p>
 
@@ -231,6 +238,15 @@
             <p class="mb-2"><strong id="publish-price-label">—</strong></p>
             <p id="publish-config-warn" class="small text-warning" hidden>Server keys are not configured. Set <code>RAZORPAY_KEY_ID</code> and <code>RAZORPAY_KEY_SECRET</code> (and optional <code>CARD_PRICE_PAISE</code>).</p>
             <button type="button" class="btn btn-primary btn-lg" id="btn-pay-publish"><i class="fa fa-lock mr-1"></i>Pay &amp; publish card</button>
+          </div>
+        </div>
+
+        <div class="card mb-5">
+          <div class="card-header font-weight-bold">Your saved cards</div>
+          <div class="card-body">
+            <ul class="mb-0 pl-3" id="my-cards-list">
+              <li class="text-muted small">No cards published yet.</li>
+            </ul>
           </div>
         </div>
       </div>

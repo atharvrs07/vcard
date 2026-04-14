@@ -6,7 +6,6 @@
   var slugCheckTimer;
   var RESERVED = {
     form: 1,
-    api: 1,
     card: 1,
     preview: 1,
     uploads: 1,
@@ -527,6 +526,55 @@
       });
   }
 
+  function renderMyCards(cards) {
+    var listEl = document.getElementById("my-cards-list");
+    if (!listEl) return;
+    listEl.innerHTML = "";
+    if (!Array.isArray(cards) || cards.length === 0) {
+      listEl.innerHTML = '<li class="text-muted small">No cards published yet.</li>';
+      return;
+    }
+    cards.slice().reverse().forEach(function (card) {
+      var li = document.createElement("li");
+      li.className = "mb-1";
+      var slug = (card && card.slug) || "";
+      var href = (card && card.profile_link) || (slug ? getPublicOrigin() + "/" + slug : "#");
+      li.innerHTML =
+        '<a href="' +
+        escapeAttr(href) +
+        '" target="_blank" rel="noopener">' +
+        escapeAttr(slug || href) +
+        "</a>";
+      listEl.appendChild(li);
+    });
+  }
+
+  function loadAccountState() {
+    return fetch("/auth/me")
+      .then(function (r) {
+        return readJsonResponse(r).then(function (data) {
+          if (!r.ok) throw new Error(data.error || "Please log in again.");
+          return data;
+        });
+      })
+      .then(function (data) {
+        var banner = document.getElementById("account-banner-text");
+        if (banner && data && data.account) {
+          banner.textContent = "Signed in as " + (data.account.name || data.account.email || "Account");
+        }
+        return fetch("/my-cards");
+      })
+      .then(function (r) {
+        return readJsonResponse(r).then(function (data) {
+          if (!r.ok) throw new Error(data.error || "Could not load saved cards.");
+          renderMyCards(data.cards || []);
+        });
+      })
+      .catch(function () {
+        window.location.href = "/login";
+      });
+  }
+
   document.getElementById("add-service").addEventListener("click", function () {
     addServiceRow("", "", "", "");
     sendPreview();
@@ -781,11 +829,22 @@
   });
 
   iframe = document.getElementById("preview-frame");
+  var logoutBtn = document.getElementById("btn-logout");
+  if (logoutBtn) {
+    logoutBtn.addEventListener("click", function () {
+      fetch("/auth/logout", { method: "POST" })
+        .catch(function () {})
+        .finally(function () {
+          window.location.href = "/login";
+        });
+    });
+  }
   wireFormInputs();
   updateThemeHexLabel();
   updateCardUrlPreview();
   document.getElementById("card-origin-prefix").textContent = getPublicOrigin() + "/";
   loadPublishConfig();
+  loadAccountState();
 
   iframe.addEventListener("load", function onLoad() {
     iframe.removeEventListener("load", onLoad);

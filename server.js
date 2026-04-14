@@ -4,6 +4,7 @@ const fs = require("fs");
 const crypto = require("crypto");
 const express = require("express");
 const multer = require("multer");
+const nodemailer = require("nodemailer");
 
 const app = express();
 app.disable("x-powered-by");
@@ -16,7 +17,15 @@ const root = __dirname;
 const dataDir = path.join(root, "data");
 const uploadsDir = path.join(root, "uploads");
 const usersFile = path.join(root, "users.json");
+const accountsFile = path.join(root, "accounts.json");
 const indexHtmlPath = path.join(root, "index.html");
+const SESSION_COOKIE = "vcard_session";
+const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 14; // 14 days
+const OTP_TTL_MS = 1000 * 60 * 10; // 10 minutes
+const OTP_RESEND_MS = 1000 * 45; // 45 seconds
+const OTP_MAX_ATTEMPTS = 5;
+const sessions = new Map();
+const signupOtps = new Map();
 
 function ensureStorage() {
   try {
@@ -24,6 +33,9 @@ function ensureStorage() {
     fs.mkdirSync(uploadsDir, { recursive: true });
     if (!fs.existsSync(usersFile)) {
       fs.writeFileSync(usersFile, "[]", "utf8");
+    }
+    if (!fs.existsSync(accountsFile)) {
+      fs.writeFileSync(accountsFile, "[]", "utf8");
     }
   } catch (e) {}
 }
@@ -42,6 +54,38 @@ function readUsers() {
 
 function writeUsers(users) {
   fs.writeFileSync(usersFile, JSON.stringify(users, null, 2), "utf8");
+}
+
+function readAccounts() {
+  try {
+    const raw = fs.readFileSync(accountsFile, "utf8");
+    const list = JSON.parse(raw);
+    return Array.isArray(list) ? list : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeAccounts(accounts) {
+  fs.writeFileSync(accountsFile, JSON.stringify(accounts, null, 2), "utf8");
+}
+
+function findAccountByEmail(email) {
+  const normalized = String(email || "").trim().toLowerCase();
+  if (!normalized) return { accounts: [], idx: -1, account: null };
+  const accounts = readAccounts();
+  const idx = accounts.findIndex((a) => String((a && a.email) || "").trim().toLowerCase() === normalized);
+  if (idx < 0) return { accounts, idx: -1, account: null };
+  return { accounts, idx, account: accounts[idx] || null };
+}
+
+function findAccountById(id) {
+  const key = String(id || "").trim();
+  if (!key) return { accounts: [], idx: -1, account: null };
+  const accounts = readAccounts();
+  const idx = accounts.findIndex((a) => String((a && a.id) || "") === key);
+  if (idx < 0) return { accounts, idx: -1, account: null };
+  return { accounts, idx, account: accounts[idx] || null };
 }
 
 function findUserBySlug(slug) {
@@ -116,10 +160,16 @@ const videoUpload = multer({
 
 const RESERVED_SLUGS = new Set([
   "form",
-  "api",
   "card",
   "preview",
   "profile",
+  "signup",
+  "login",
+  "dashboard",
+  "analytics",
+  "auth",
+  "my-cards",
+  "analytics-data",
   "config",
   "slug-status",
   "create-order",
@@ -271,6 +321,212 @@ function suggestAvailableSlugs(baseSlug) {
   return out.slice(0, 5);
 }
 
+function hashPassword(password, saltHex) {
+  const salt = Buffer.from(saltHex, "hex");
+  return crypto.scryptSync(String(password || ""), salt, 64).toString("hex");
+}
+
+function createPasswordRecord(password) {
+  const salt = crypto.randomBytes(16).toString("hex");
+  const hash = hashPassword(password, salt);
+  return { salt, hash };
+}
+
+function verifyPassword(password, salt, expectedHash) {
+  if (!password || !salt || !expectedHash) return false;
+  const computed = hashPassword(password, salt);
+  try {
+    return crypto.timingSafeEqual(Buffer.from(computed, "hex"), Buffer.from(expectedHash, "hex"));
+  } catch {
+    return computed === expectedHash;
+  }
+}
+
+function parseCookies(req) {
+  const raw = String(req.headers.cookie || "");
+  const out = {};
+  raw.split(";").forEach((part) => {
+    const i = part.indexOf("=");
+    if (i <= 0) return;
+    const key = part.slice(0, i).trim();
+    const value = part.slice(i + 1).trim();
+    if (!key) return;
+    out[key] = decodeURIComponent(value);
+  });
+  return out;
+}
+
+function setSessionCookie(req, res, token) {
+  const secure = (req.protocol || "").toLowerCase() === "https";
+  const parts = [
+    `${SESSION_COOKIE}=${encodeURIComponent(token)}`,
+    "Path=/",
+    "HttpOnly",
+    "SameSite=Lax",
+    `Max-Age=${Math.floor(SESSION_TTL_MS / 1000)}`,
+  ];
+  if (secure) parts.push("Secure");
+  res.setHeader("Set-Cookie", parts.join("; "));
+}
+
+function clearSessionCookie(req, res) {
+  const secure = (req.protocol || "").toLowerCase() === "https";
+  const parts = [`${SESSION_COOKIE}=`, "Path=/", "HttpOnly", "SameSite=Lax", "Max-Age=0"];
+  if (secure) parts.push("Secure");
+  res.setHeader("Set-Cookie", parts.join("; "));
+}
+
+function createSession(accountId) {
+  const token = crypto.randomBytes(24).toString("hex");
+  sessions.set(token, {
+    accountId: String(accountId || ""),
+    expiresAt: Date.now() + SESSION_TTL_MS,
+  });
+  return token;
+}
+
+function getSessionAccount(req) {
+  const token = parseCookies(req)[SESSION_COOKIE];
+  if (!token) return null;
+  const sess = sessions.get(token);
+  if (!sess) return null;
+  if (!sess.expiresAt || sess.expiresAt < Date.now()) {
+    sessions.delete(token);
+    return null;
+  }
+  const found = findAccountById(sess.accountId);
+  if (found.idx < 0 || !found.account) {
+    sessions.delete(token);
+    return null;
+  }
+  sess.expiresAt = Date.now() + SESSION_TTL_MS;
+  sessions.set(token, sess);
+  return { token, account: found.account };
+}
+
+function authRequired(req, res, next) {
+  const sess = getSessionAccount(req);
+  if (!sess || !sess.account) {
+    return res.redirect("/login");
+  }
+  req.account = sess.account;
+  req.sessionToken = sess.token;
+  next();
+}
+
+function getAccountCardsWithStats(account) {
+  const cards = Array.isArray(account && account.cards) ? account.cards : [];
+  const users = readUsers();
+  const userBySlug = new Map();
+  users.forEach((u) => {
+    const slug = String((u && u.card_slug) || "").trim().toLowerCase();
+    if (!slug) return;
+    userBySlug.set(slug, u);
+  });
+
+  const ownedFromUsers = users
+    .filter((u) => String((u && u.owner_account_id) || "") === String((account && account.id) || ""))
+    .map((u) => {
+      const slug = String((u && u.card_slug) || "").trim().toLowerCase();
+      return {
+        slug,
+        profile_link: String((u && u.profile_link) || "").trim() || "/" + slug,
+        saved_at: null,
+        view_count: Number((u && u.view_count) || 0) || 0,
+      };
+    });
+
+  const merged = new Map();
+  cards.forEach((c) => {
+    const slug = String((c && c.slug) || "").trim().toLowerCase();
+    if (!slug) return;
+    const user = userBySlug.get(slug);
+    merged.set(slug, {
+      slug,
+      profile_link: (c && c.profile_link) || (user && user.profile_link) || "/" + slug,
+      saved_at: (c && c.saved_at) || null,
+      view_count: Number((user && user.view_count) || 0) || 0,
+    });
+  });
+
+  ownedFromUsers.forEach((c) => {
+    if (!c.slug) return;
+    if (!merged.has(c.slug)) {
+      merged.set(c.slug, c);
+      return;
+    }
+    const prev = merged.get(c.slug);
+    prev.view_count = Math.max(Number(prev.view_count) || 0, Number(c.view_count) || 0);
+    if (!prev.profile_link && c.profile_link) prev.profile_link = c.profile_link;
+    merged.set(c.slug, prev);
+  });
+
+  return Array.from(merged.values()).sort((a, b) => {
+    const ta = Date.parse(a.saved_at || 0) || 0;
+    const tb = Date.parse(b.saved_at || 0) || 0;
+    return tb - ta;
+  });
+}
+
+function getMailConfig() {
+  const host = String(process.env.SMTP_HOST || "").trim();
+  const port = Number(process.env.SMTP_PORT || 0);
+  const secure = String(process.env.SMTP_SECURE || "").trim() === "1";
+  const user = String(process.env.SMTP_USER || "").trim();
+  const pass = String(process.env.SMTP_PASS || "").trim();
+  const from = String(process.env.SMTP_FROM || user || "").trim();
+  const ready = !!(host && port && user && pass && from);
+  return { ready, host, port, secure, user, pass, from };
+}
+
+let mailerCache = null;
+function getMailer() {
+  const cfg = getMailConfig();
+  if (!cfg.ready) return null;
+  if (mailerCache && mailerCache.key === JSON.stringify(cfg)) return mailerCache.tx;
+  const tx = nodemailer.createTransport({
+    host: cfg.host,
+    port: cfg.port,
+    secure: cfg.secure,
+    auth: { user: cfg.user, pass: cfg.pass },
+  });
+  mailerCache = { key: JSON.stringify(cfg), tx };
+  return tx;
+}
+
+async function sendMailMessage(to, subject, html, text) {
+  const cfg = getMailConfig();
+  const tx = getMailer();
+  if (!cfg.ready || !tx) {
+    throw new Error("Email service is not configured. Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM.");
+  }
+  await tx.sendMail({
+    from: cfg.from,
+    to,
+    subject,
+    text: text || "",
+    html: html || "",
+  });
+}
+
+function createOtpCode() {
+  return String(crypto.randomInt(100000, 1000000));
+}
+
+function hashOtpCode(code) {
+  return crypto.createHash("sha256").update(String(code || "")).digest("hex");
+}
+
+function verifyOtpCode(raw, storedHash) {
+  if (!raw || !storedHash) return false;
+  const calc = hashOtpCode(raw);
+  try {
+    return crypto.timingSafeEqual(Buffer.from(calc, "hex"), Buffer.from(storedHash, "hex"));
+  } catch {
+    return calc === storedHash;
+  }
+}
+
 const JSON_BODY_LIMIT = process.env.JSON_BODY_LIMIT || "12mb";
 app.use(express.json({ limit: JSON_BODY_LIMIT }));
 app.use(express.urlencoded({ extended: false, limit: JSON_BODY_LIMIT }));
@@ -290,7 +546,6 @@ function uploadLogoHandler(req, res) {
   res.json({ url: publicPath });
 }
 app.post("/upload-logo", uploadLogo.single("logo"), uploadLogoHandler);
-app.post("/api/upload-logo", uploadLogo.single("logo"), uploadLogoHandler);
 
 function uploadImageHandler(req, res) {
   if (!req.file) {
@@ -299,7 +554,6 @@ function uploadImageHandler(req, res) {
   res.json({ url: "/uploads/" + req.file.filename });
 }
 app.post("/upload-image", imageUpload.single("image"), uploadImageHandler);
-app.post("/api/upload-image", imageUpload.single("image"), uploadImageHandler);
 
 function uploadVideoHandler(req, res) {
   if (!req.file) {
@@ -308,7 +562,6 @@ function uploadVideoHandler(req, res) {
   res.json({ url: "/uploads/" + req.file.filename });
 }
 app.post("/upload-video", videoUpload.single("video"), uploadVideoHandler);
-app.post("/api/upload-video", videoUpload.single("video"), uploadVideoHandler);
 
 function slugStatusHandler(req, res) {
   const slug = (req.query.slug || "").trim().toLowerCase();
@@ -326,15 +579,231 @@ function slugStatusHandler(req, res) {
   });
 }
 app.get("/slug-status", slugStatusHandler);
-app.get("/api/slug-status", slugStatusHandler);
+
+app.get("/signup", (req, res) => {
+  const sess = getSessionAccount(req);
+  if (sess && sess.account) {
+    return res.redirect("/dashboard");
+  }
+  res.set("Cache-Control", "no-store");
+  res.sendFile(path.join(root, "signup.html"));
+});
+
+app.get("/login", (req, res) => {
+  const sess = getSessionAccount(req);
+  if (sess && sess.account) {
+    return res.redirect("/dashboard");
+  }
+  res.set("Cache-Control", "no-store");
+  res.sendFile(path.join(root, "signup.html"));
+});
+
+app.post("/auth/signup", (req, res) => {
+  const name = String(req.body.name || "").trim();
+  const email = String(req.body.email || "").trim().toLowerCase();
+  const password = String(req.body.password || "");
+  const otp = String(req.body.otp || "").trim();
+  if (!name) return res.status(400).json({ error: "Name is required." });
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ error: "Enter a valid email address." });
+  }
+  if (password.length < 6) {
+    return res.status(400).json({ error: "Password must be at least 6 characters." });
+  }
+  if (!/^\d{6}$/.test(otp)) {
+    return res.status(400).json({ error: "Enter the 6-digit OTP sent to your email." });
+  }
+  const found = findAccountByEmail(email);
+  if (found.idx >= 0) {
+    return res.status(409).json({ error: "Account already exists. Please log in." });
+  }
+  const pending = signupOtps.get(email);
+  if (!pending || !pending.otp_hash) {
+    return res.status(400).json({ error: "Please request OTP first." });
+  }
+  if (pending.expires_at < Date.now()) {
+    signupOtps.delete(email);
+    return res.status(400).json({ error: "OTP expired. Request a new OTP." });
+  }
+  if ((pending.attempts || 0) >= OTP_MAX_ATTEMPTS) {
+    signupOtps.delete(email);
+    return res.status(429).json({ error: "Too many invalid attempts. Request a fresh OTP." });
+  }
+  if (!verifyOtpCode(otp, pending.otp_hash)) {
+    pending.attempts = Number(pending.attempts || 0) + 1;
+    signupOtps.set(email, pending);
+    return res.status(400).json({ error: "Invalid OTP. Please try again." });
+  }
+  signupOtps.delete(email);
+
+  const pass = createPasswordRecord(password);
+  const newAccount = {
+    id: crypto.randomBytes(12).toString("hex"),
+    name,
+    email,
+    password_salt: pass.salt,
+    password_hash: pass.hash,
+    cards: [],
+    created_at: new Date().toISOString(),
+  };
+  try {
+    const accounts = readAccounts();
+    accounts.push(newAccount);
+    writeAccounts(accounts);
+    const token = createSession(newAccount.id);
+    setSessionCookie(req, res, token);
+    sendMailMessage(
+      email,
+      "Welcome to Digital vCard",
+      "<p>Hi " +
+        escapeHtmlAttr(name) +
+        ",</p><p>Your account is ready. You can now log in, build your card, and track analytics from your dashboard.</p><p>Thanks for joining Digital vCard.</p>",
+      "Hi " + name + ",\n\nYour account is ready. You can now build your card and view analytics from your dashboard.\n\nThanks for joining Digital vCard."
+    ).catch((e) => {
+      console.error("welcome email failed:", e.message || e);
+    });
+    res.json({
+      ok: true,
+      account: { id: newAccount.id, name: newAccount.name, email: newAccount.email, cards: [] },
+    });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "Could not create account." });
+  }
+});
+
+app.post("/auth/send-signup-otp", async (req, res) => {
+  const name = String(req.body.name || "").trim();
+  const email = String(req.body.email || "").trim().toLowerCase();
+  if (!name) return res.status(400).json({ error: "Name is required." });
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ error: "Enter a valid email address." });
+  }
+  const found = findAccountByEmail(email);
+  if (found.idx >= 0) {
+    return res.status(409).json({ error: "Account already exists. Please log in." });
+  }
+
+  const cfg = getMailConfig();
+  if (!cfg.ready) {
+    return res.status(503).json({
+      error: "Email service is not configured. Add SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM in .env.",
+    });
+  }
+
+  const now = Date.now();
+  const existing = signupOtps.get(email);
+  if (existing && existing.last_sent_at && now - existing.last_sent_at < OTP_RESEND_MS) {
+    const waitSec = Math.ceil((OTP_RESEND_MS - (now - existing.last_sent_at)) / 1000);
+    return res.status(429).json({ error: "Please wait " + waitSec + "s before requesting another OTP." });
+  }
+
+  const code = createOtpCode();
+  try {
+    await sendMailMessage(
+      email,
+      "Your Digital vCard OTP",
+      "<p>Hi " +
+        escapeHtmlAttr(name) +
+        ",</p><p>Your OTP for account verification is:</p><h2 style=\"letter-spacing:2px;\">" +
+        code +
+        "</h2><p>This OTP is valid for 10 minutes.</p>",
+      "Hi " + name + ",\n\nYour OTP is: " + code + "\nThis OTP is valid for 10 minutes."
+    );
+    signupOtps.set(email, {
+      otp_hash: hashOtpCode(code),
+      expires_at: now + OTP_TTL_MS,
+      attempts: 0,
+      last_sent_at: now,
+    });
+    res.json({ ok: true, expiresInSec: Math.floor(OTP_TTL_MS / 1000) });
+  } catch (e) {
+    console.error("otp email failed:", e.message || e);
+    res.status(503).json({ error: "Could not send OTP email right now. Please try again." });
+  }
+});
+
+app.post("/auth/login", (req, res) => {
+  const email = String(req.body.email || "").trim().toLowerCase();
+  const password = String(req.body.password || "");
+  if (!email || !password) {
+    return res.status(400).json({ error: "Email and password are required." });
+  }
+  const found = findAccountByEmail(email);
+  if (found.idx < 0 || !found.account) {
+    return res.status(401).json({ error: "Invalid email or password." });
+  }
+  if (!verifyPassword(password, found.account.password_salt, found.account.password_hash)) {
+    return res.status(401).json({ error: "Invalid email or password." });
+  }
+  const token = createSession(found.account.id);
+  setSessionCookie(req, res, token);
+  res.json({
+    ok: true,
+    account: {
+      id: found.account.id,
+      name: found.account.name,
+      email: found.account.email,
+      cards: Array.isArray(found.account.cards) ? found.account.cards : [],
+    },
+  });
+});
+
+app.post("/auth/logout", (req, res) => {
+  const token = parseCookies(req)[SESSION_COOKIE];
+  if (token) sessions.delete(token);
+  clearSessionCookie(req, res);
+  res.json({ ok: true });
+});
+
+app.get("/auth/me", (req, res) => {
+  const sess = getSessionAccount(req);
+  if (!sess || !sess.account) {
+    return res.status(401).json({ authenticated: false });
+  }
+  const cards = getAccountCardsWithStats(sess.account);
+  const totalViews = cards.reduce((sum, card) => sum + (Number(card.view_count) || 0), 0);
+  res.json({
+    authenticated: true,
+    account: {
+      id: sess.account.id,
+      name: sess.account.name,
+      email: sess.account.email,
+      cards,
+      totalViews,
+    },
+  });
+});
+
+app.get("/my-cards", authRequired, (req, res) => {
+  const cards = getAccountCardsWithStats(req.account);
+  res.json({ cards });
+});
+
+app.get("/analytics-data", authRequired, (req, res) => {
+  const cards = getAccountCardsWithStats(req.account);
+  const totalCards = cards.length;
+  const totalViews = cards.reduce((sum, card) => sum + (Number(card.view_count) || 0), 0);
+  res.json({ totalCards, totalViews, cards });
+});
 
 app.get("/", (req, res) => {
   res.sendFile(path.join(root, "landing.html"));
 });
 
-app.get("/form", (req, res) => {
+app.get("/form", authRequired, (req, res) => {
   res.set("Cache-Control", "no-store");
   res.sendFile(path.join(root, "form.html"));
+});
+
+app.get("/dashboard", authRequired, (req, res) => {
+  res.set("Cache-Control", "no-store");
+  res.sendFile(path.join(root, "dashboard.html"));
+});
+
+app.get("/analytics", authRequired, (req, res) => {
+  res.set("Cache-Control", "no-store");
+  res.sendFile(path.join(root, "analytics.html"));
 });
 
 app.get("/preview", (req, res) => {
@@ -360,7 +829,6 @@ function configHandler(req, res) {
   });
 }
 app.get("/config", configHandler);
-app.get("/api/config", configHandler);
 
 app.get("/health", (req, res) => {
   res.type("text").send("ok");
@@ -407,8 +875,7 @@ async function createOrderHandler(req, res) {
     res.status(503).json({ error: String(e.message || e) });
   }
 }
-app.post("/create-order", createOrderHandler);
-app.post("/api/create-order", createOrderHandler);
+app.post("/create-order", authRequired, createOrderHandler);
 
 function verifyRazorpaySignature(orderId, paymentId, signature, secret) {
   if (!orderId || !paymentId || !signature || !secret) return false;
@@ -422,6 +889,9 @@ function verifyRazorpaySignature(orderId, paymentId, signature, secret) {
 }
 
 function handlePublish(req, res) {
+  if (!req.account || !req.account.id) {
+    return res.status(401).json({ error: "Please sign up or log in to publish your card." });
+  }
   const secret = process.env.RAZORPAY_KEY_SECRET;
   const allowInsecure = process.env.ALLOW_INSECURE_PUBLISH === "1";
 
@@ -471,11 +941,24 @@ function handlePublish(req, res) {
   profile.profile_link = origin + "/" + slug;
   profile.card_slug = slug;
   profile.view_count = 0;
+  profile.owner_account_id = req.account.id;
 
   try {
     const users = readUsers();
     users.push(profile);
     writeUsers(users);
+    const foundAccount = findAccountById(req.account.id);
+    if (foundAccount.idx >= 0 && foundAccount.account) {
+      const cards = Array.isArray(foundAccount.account.cards) ? foundAccount.account.cards : [];
+      cards.push({
+        slug,
+        profile_link: profile.profile_link,
+        saved_at: new Date().toISOString(),
+      });
+      foundAccount.account.cards = cards;
+      foundAccount.accounts[foundAccount.idx] = foundAccount.account;
+      writeAccounts(foundAccount.accounts);
+    }
   } catch (e) {
     console.error(e);
     return res.status(500).json({ error: "Could not save card" });
@@ -484,11 +967,9 @@ function handlePublish(req, res) {
   res.json({ ok: true, path: "/" + slug });
 }
 
-app.post("/save-profile", handlePublish);
-app.post("/complete", handlePublish);
-app.post("/publish", handlePublish);
-app.post("/api/save-profile", handlePublish);
-app.post("/api/publish", handlePublish);
+app.post("/save-profile", authRequired, handlePublish);
+app.post("/complete", authRequired, handlePublish);
+app.post("/publish", authRequired, handlePublish);
 
 function profileHandler(req, res) {
   res.set("Cache-Control", "no-store");
@@ -513,7 +994,6 @@ function profileHandler(req, res) {
   }
 }
 app.get("/profile/:slug", profileHandler);
-app.get("/api/profile/:slug", profileHandler);
 
 app.use(express.static(root, { index: false }));
 

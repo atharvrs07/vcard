@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dashboard - Digital vCard</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
+  <style>
+    body { background: #0f172a; color: #e2e8f0; }
+    .panel {
+      background: #111827;
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      border-radius: 12px;
+    }
+    .muted { color: #94a3b8; }
+    a { color: #93c5fd; }
+  </style>
+</head>
+<body>
+  <nav class="navbar navbar-dark bg-dark">
+    <span class="navbar-brand mb-0 h1">Digital vCard Dashboard</span>
+    <button class="btn btn-outline-light btn-sm" id="btn-logout">Log out</button>
+  </nav>
+  <main class="container py-4">
+    <div class="panel p-4 mb-3">
+      <h1 class="h4 mb-1" id="welcome-line">Welcome</h1>
+      <p class="muted mb-0">Manage your card and track performance from one place.</p>
+    </div>
+    <div class="row">
+      <div class="col-md-6 mb-3">
+        <div class="panel p-4 h-100">
+          <h2 class="h5">Card Builder</h2>
+          <p class="muted">Create or update your digital card details.</p>
+          <a class="btn btn-primary" href="/form">Open Form Builder</a>
+        </div>
+      </div>
+      <div class="col-md-6 mb-3">
+        <div class="panel p-4 h-100">
+          <h2 class="h5">Analytics</h2>
+          <p class="muted">See how many views your card is getting.</p>
+          <a class="btn btn-outline-info" href="/analytics">Open Analytics</a>
+        </div>
+      </div>
+    </div>
+    <div class="panel p-4">
+      <h2 class="h5">Your saved cards</h2>
+      <ul id="cards-list" class="mb-0 pl-3">
+        <li class="muted">Loading...</li>
+      </ul>
+    </div>
+  </main>
+  <script src="/dashboard.js"></script>
+</body>
+</html>

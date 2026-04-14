@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Analytics - Digital vCard</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
+  <style>
+    body { background: #0f172a; color: #e2e8f0; }
+    .panel {
+      background: #111827;
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      border-radius: 12px;
+    }
+    .muted { color: #94a3b8; }
+  </style>
+</head>
+<body>
+  <nav class="navbar navbar-dark bg-dark">
+    <a class="navbar-brand" href="/dashboard">← Dashboard</a>
+    <button class="btn btn-outline-light btn-sm" id="btn-logout">Log out</button>
+  </nav>
+  <main class="container py-4">
+    <div class="panel p-4 mb-3">
+      <h1 class="h4 mb-1">Card Analytics</h1>
+      <p class="muted mb-0">Track views and engagement per published card.</p>
+    </div>
+    <div class="row mb-3">
+      <div class="col-md-6 mb-3">
+        <div class="panel p-3">
+          <div class="muted small">Total Cards</div>
+          <div class="h3 mb-0" id="total-cards">0</div>
+        </div>
+      </div>
+      <div class="col-md-6 mb-3">
+        <div class="panel p-3">
+          <div class="muted small">Total Views</div>
+          <div class="h3 mb-0" id="total-views">0</div>
+        </div>
+      </div>
+    </div>
+    <div class="panel p-3">
+      <div class="table-responsive">
+        <table class="table table-dark table-striped mb-0">
+          <thead>
+            <tr>
+              <th>Card</th>
+              <th>Views</th>
+              <th>Link</th>
+            </tr>
+          </thead>
+          <tbody id="analytics-rows">
+            <tr><td colspan="3" class="muted">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+  <script src="/analytics.js"></script>
+</body>
+</html>
