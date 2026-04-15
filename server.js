@@ -95,79 +95,9 @@ function findUserBySlug(slug) {
   return { users, idx, user: users[idx] || null };
 }
 
-function findUserByCustomDomainPath(domain, pathName) {
-  const d = String(domain || "").trim().toLowerCase();
-  const p = String(pathName || "").trim().toLowerCase();
-  if (!d || !p) return { users: [], idx: -1, user: null };
-  const users = readUsers();
-  const idx = users.findIndex((u) => {
-    const ud = String((u && u.custom_domain) || "").trim().toLowerCase();
-    const up = String((u && u.custom_path) || "").trim().toLowerCase();
-    return ud === d && up === p;
-  });
-  if (idx < 0) return { users, idx: -1, user: null };
-  return { users, idx, user: users[idx] || null };
-}
-
-function getRequestHostName(req) {
-  const forwarded = String(req.get("x-forwarded-host") || "").trim();
-  const hostRaw = (forwarded ? forwarded.split(",")[0] : req.get("host") || "").trim().toLowerCase();
-  return hostRaw.replace(/:\d+$/, "");
-}
-
-function normalizeDomainInput(raw) {
-  let s = String(raw || "").trim().toLowerCase();
-  if (!s) return "";
-  s = s.replace(/^https?:\/\//i, "").replace(/\/.*$/, "").replace(/:\d+$/, "");
-  return s;
-}
-
-function isValidDomainInput(raw) {
-  const s = normalizeDomainInput(raw);
-  if (!s) return false;
-  if (s.length > 253) return false;
-  return /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(s);
-}
-
-function normalizeCustomPath(raw) {
-  return String(raw || "")
-    .trim()
-    .toLowerCase()
-    .replace(/^\/+/, "")
-    .replace(/\/+$/, "");
-}
-
-function isValidCustomPath(pathName) {
-  const p = normalizeCustomPath(pathName);
-  return /^[a-z0-9]([a-z0-9-]{0,30}[a-z0-9])?$/.test(p);
-}
-
-function buildCardUrl(req, slug, customDomain, customPath) {
+function buildCardUrl(req, slug) {
   const cleanSlug = String(slug || "").trim().toLowerCase();
-  const d = normalizeDomainInput(customDomain);
-  const p = normalizeCustomPath(customPath);
-  if (d && p) {
-    return "https://" + d + "/" + p;
-  }
   return getPublicBaseUrl(req) + "/" + cleanSlug;
-}
-
-function syncAccountCardLinks(accountId, req, users, accounts) {
-  const aid = String(accountId || "");
-  if (!aid) return;
-  const aIdx = accounts.findIndex((a) => String((a && a.id) || "") === aid);
-  if (aIdx < 0 || !accounts[aIdx]) return;
-  const account = accounts[aIdx];
-  const cards = Array.isArray(account.cards) ? account.cards : [];
-  cards.forEach((card) => {
-    const slug = String((card && card.slug) || "").trim().toLowerCase();
-    if (!slug) return;
-    const user = users.find((u) => String((u && u.card_slug) || "").trim().toLowerCase() === slug);
-    if (!user) return;
-    card.profile_link = buildCardUrl(req, slug, user.custom_domain, user.custom_path);
-  });
-  account.cards = cards;
-  accounts[aIdx] = account;
 }
 
 function migrateLegacyDataFilesIfNeeded() {
@@ -872,123 +802,56 @@ app.get("/analytics-data", authRequired, (req, res) => {
   res.json({ totalCards, totalViews, cards });
 });
 
-app.get("/whitelabel/state", authRequired, (req, res) => {
-  const accountId = String((req.account && req.account.id) || "");
-  const users = readUsers();
-  const cards = getAccountCardsWithStats(req.account);
-  const mapped = users.find((u) => {
-    if (String((u && u.owner_account_id) || "") !== accountId) return false;
-    return !!(String((u && u.custom_domain) || "").trim() && String((u && u.custom_path) || "").trim());
-  });
-  res.json({
-    cards,
-    mapping: mapped
-      ? {
-          slug: String(mapped.card_slug || ""),
-          customDomain: String(mapped.custom_domain || ""),
-          customPath: String(mapped.custom_path || ""),
-          url: buildCardUrl(req, mapped.card_slug, mapped.custom_domain, mapped.custom_path),
-        }
-      : null,
-  });
-});
+const WEBSITE_EMBED_HTML_TEMPLATE = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Digital Card</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+    }
 
-app.post("/whitelabel/save", authRequired, (req, res) => {
-  const accountId = String((req.account && req.account.id) || "");
-  const slug = String(req.body.slug || "").trim().toLowerCase();
-  const customDomain = normalizeDomainInput(req.body.customDomain || "");
-  const customPath = normalizeCustomPath(req.body.customPath || "");
-  if (!slug) return res.status(400).json({ error: "Card slug is required." });
-  if (!isValidDomainInput(customDomain)) {
-    return res.status(400).json({ error: "Enter a valid domain (example.com)." });
-  }
-  if (!isValidCustomPath(customPath)) {
-    return res.status(400).json({ error: "Path must use letters, numbers, and hyphens only." });
-  }
-  const users = readUsers();
-  const userIdx = users.findIndex(
-    (u) =>
-      String((u && u.card_slug) || "").trim().toLowerCase() === slug &&
-      String((u && u.owner_account_id) || "") === accountId
-  );
-  if (userIdx < 0 || !users[userIdx]) {
-    return res.status(404).json({ error: "Card not found for this account." });
-  }
-  const conflictIdx = users.findIndex((u, idx) => {
-    if (idx === userIdx) return false;
-    const d = String((u && u.custom_domain) || "").trim().toLowerCase();
-    const p = String((u && u.custom_path) || "").trim().toLowerCase();
-    return d === customDomain && p === customPath;
-  });
-  if (conflictIdx >= 0) {
-    return res.status(409).json({ error: "This domain + path is already mapped to another card." });
-  }
-  users.forEach((u) => {
-    if (String((u && u.owner_account_id) || "") !== accountId) return;
-    if (String((u && u.card_slug) || "").trim().toLowerCase() === slug) return;
-    delete u.custom_domain;
-    delete u.custom_path;
-    u.profile_link = buildCardUrl(req, u.card_slug);
-  });
-  const target = users[userIdx];
-  target.custom_domain = customDomain;
-  target.custom_path = customPath;
-  target.profile_link = buildCardUrl(req, target.card_slug, customDomain, customPath);
-  users[userIdx] = target;
+    iframe {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+  </style>
+</head>
+<body>
+  <iframe src="{{CARD_URL}}" allow="fullscreen; autoplay"></iframe>
+</body>
+</html>
+`;
 
-  const accounts = readAccounts();
-  syncAccountCardLinks(accountId, req, users, accounts);
-  writeUsers(users);
-  writeAccounts(accounts);
-  res.json({
-    ok: true,
-    mapping: {
-      slug: slug,
-      customDomain: customDomain,
-      customPath: customPath,
-      url: buildCardUrl(req, slug, customDomain, customPath),
-    },
-  });
-});
+app.get("/website-embed/:cardSlug", authRequired, (req, res) => {
+  const slug = String(req.params.cardSlug || "").trim().toLowerCase();
+  if (!isValidSlug(slug)) {
+    return res.status(400).json({ error: "Invalid card slug." });
+  }
+  const found = findUserBySlug(slug);
+  if (found.idx < 0 || !found.user) {
+    return res.status(404).json({ error: "Card not found." });
+  }
+  const ownerId = String((found.user && found.user.owner_account_id) || "");
+  if (ownerId !== String((req.account && req.account.id) || "")) {
+    return res.status(403).json({ error: "You can only download files for your own cards." });
+  }
 
-app.post("/whitelabel/clear", authRequired, (req, res) => {
-  const accountId = String((req.account && req.account.id) || "");
-  const users = readUsers();
-  let changed = false;
-  users.forEach((u) => {
-    if (String((u && u.owner_account_id) || "") !== accountId) return;
-    const had = !!(u.custom_domain || u.custom_path);
-    delete u.custom_domain;
-    delete u.custom_path;
-    u.profile_link = buildCardUrl(req, u.card_slug);
-    if (had) changed = true;
-  });
-  const accounts = readAccounts();
-  syncAccountCardLinks(accountId, req, users, accounts);
-  writeUsers(users);
-  writeAccounts(accounts);
-  res.json({ ok: true, changed });
-});
-
-app.use((req, res, next) => {
-  if (req.method !== "GET" && req.method !== "HEAD") return next();
-  const pathName = String(req.path || "")
-    .trim()
-    .replace(/^\/+/, "")
-    .replace(/\/+$/, "")
-    .toLowerCase();
-  if (!pathName || pathName.includes("/")) return next();
-  if (/[.]/.test(pathName)) return next();
-  const host = getRequestHostName(req);
-  if (!host) return next();
-  const found = findUserByCustomDomainPath(host, pathName);
-  if (found.idx < 0 || !found.user) return next();
-  res.set("Cache-Control", "no-store");
-  return res.type("html").send(
-    renderCardHtmlForShare(req, found.user, {
-      slugOverride: String(found.user.card_slug || "").trim().toLowerCase(),
-    })
-  );
+  const cardUrl = buildCardUrl(req, slug);
+  const html = WEBSITE_EMBED_HTML_TEMPLATE.replace("{{CARD_URL}}", escapeHtmlAttr(cardUrl));
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Content-Disposition", 'attachment; filename="index.html"');
+  return res.status(200).send(html);
 });
 
 app.get("/", (req, res) => {
@@ -1134,6 +997,8 @@ function handlePublish(req, res) {
   }
 
   delete profile.__preview;
+  delete profile.custom_domain;
+  delete profile.custom_path;
   if (slugExists(slug)) {
     return res.status(409).json({
       error: "This card URL is already taken.",
@@ -1141,7 +1006,7 @@ function handlePublish(req, res) {
     });
   }
 
-  profile.profile_link = buildCardUrl(req, slug, profile.custom_domain, profile.custom_path);
+  profile.profile_link = buildCardUrl(req, slug);
   profile.card_slug = slug;
   profile.view_count = 0;
   profile.owner_account_id = req.account.id;

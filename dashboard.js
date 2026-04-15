@@ -14,10 +14,10 @@
 
   function showOnlyPanel(panelId) {
     var overview = document.getElementById("panel-overview");
-    var wl = document.getElementById("panel-whitelabel");
-    if (!overview || !wl) return;
+    var embed = document.getElementById("panel-website-embed");
+    if (!overview || !embed) return;
     overview.classList.toggle("d-none", panelId !== "panel-overview");
-    wl.classList.toggle("d-none", panelId !== "panel-whitelabel");
+    embed.classList.toggle("d-none", panelId !== "panel-website-embed");
     document.querySelectorAll("#dashboard-tabs .nav-link").forEach(function (btn) {
       btn.classList.toggle("active", btn.getAttribute("data-target") === panelId);
     });
@@ -44,40 +44,29 @@
     });
   }
 
-  function setWlMessage(text, kind) {
-    var ok = document.getElementById("wl-message");
-    var err = document.getElementById("wl-error");
-    if (!ok || !err) return;
-    ok.classList.add("d-none");
-    err.classList.add("d-none");
-    if (!text) return;
-    if (kind === "error") {
-      err.textContent = text;
-      err.classList.remove("d-none");
-      return;
-    }
-    ok.textContent = text;
-    ok.classList.remove("d-none");
+  function normalizeCardUrl(raw, slug) {
+    // Always prefer the selected card slug on this app domain.
+    // This avoids showing stale external URLs previously saved in profile_link.
+    var cleanSlug = String(slug || "").trim().toLowerCase();
+    if (cleanSlug) return window.location.origin + "/" + cleanSlug;
+    var s = String(raw || "").trim();
+    if (s && /^https?:\/\//i.test(s)) return s;
+    if (s.startsWith("/")) return window.location.origin + s;
+    if (s) return window.location.origin + "/" + s.replace(/^\/+/, "");
+    return "";
   }
 
-  function sanitizePathInput(v) {
-    return String(v || "")
-      .trim()
-      .toLowerCase()
-      .replace(/^\/+/, "")
-      .replace(/\/+$/, "");
-  }
+  var cardsBySlug = {};
 
-  var currentCards = [];
-
-  function fillCardSelect(cards) {
-    var sel = document.getElementById("wl-card");
+  function fillWebsiteCardSelect(cards) {
+    var sel = document.getElementById("website-card-slug");
     if (!sel) return;
-    currentCards = Array.isArray(cards) ? cards.slice() : [];
+    cardsBySlug = {};
     sel.innerHTML = '<option value="">Choose a card...</option>';
-    currentCards.forEach(function (card) {
+    (Array.isArray(cards) ? cards : []).forEach(function (card) {
       var slug = (card && card.slug) || "";
       if (!slug) return;
+      cardsBySlug[slug] = card;
       var opt = document.createElement("option");
       opt.value = slug;
       opt.textContent = slug;
@@ -85,97 +74,74 @@
     });
   }
 
-  function updateCurrentMappingLine(state) {
-    var line = document.getElementById("wl-current");
-    if (!line) return;
-    if (!state || !state.customDomain || !state.customPath || !state.slug) {
-      line.textContent = "No mapping configured yet.";
+  function setEmbedStatus(text) {
+    var status = document.getElementById("website-embed-status");
+    if (status) status.textContent = text || "";
+  }
+
+  function updateEmbedSelectionState() {
+    var select = document.getElementById("website-card-slug");
+    var linkEl = document.getElementById("website-card-link");
+    var previewBtn = document.getElementById("website-preview-link");
+    if (!select || !linkEl || !previewBtn) return;
+    var slug = String(select.value || "").trim();
+    var card = cardsBySlug[slug];
+    var cardUrl = normalizeCardUrl(card && card.profile_link, slug);
+
+    if (!slug || !cardUrl) {
+      linkEl.textContent = "Select a card to view link";
+      linkEl.href = "#";
+      previewBtn.classList.add("d-none");
+      previewBtn.href = "#";
+      setEmbedStatus("Select a card to generate your downloadable file.");
       return;
     }
-    var url = "https://" + state.customDomain + "/" + state.customPath;
-    line.innerHTML =
-      'Mapped card <b>' +
-      String(state.slug).replace(/</g, "&lt;") +
-      "</b> to <a href=\"" +
-      url.replace(/"/g, "&quot;") +
-      '" target="_blank" rel="noopener">' +
-      url.replace(/</g, "&lt;") +
-      "</a>";
+
+    linkEl.textContent = cardUrl;
+    linkEl.href = cardUrl;
+    previewBtn.classList.remove("d-none");
+    previewBtn.href = cardUrl;
+    setEmbedStatus("Ready. Download and upload as index.html on your own website.");
   }
 
-  function applyWlState(state) {
-    var sel = document.getElementById("wl-card");
-    var domain = document.getElementById("wl-domain");
-    var path = document.getElementById("wl-path");
-    if (!sel || !domain || !path) return;
-    sel.value = (state && state.slug) || "";
-    domain.value = (state && state.customDomain) || "";
-    path.value = (state && state.customPath) || "";
-    updateCurrentMappingLine(state);
-  }
+  function wireWebsiteEmbedForm() {
+    var form = document.getElementById("website-embed-form");
+    var select = document.getElementById("website-card-slug");
+    var copyBtn = document.getElementById("website-copy-url-btn");
+    if (!form || !select || !copyBtn) return;
 
-  function loadWhitelabelState() {
-    return fetch("/whitelabel/state")
-      .then(parseJson)
-      .then(function (data) {
-        fillCardSelect(data.cards || []);
-        applyWlState(data.mapping || null);
-      })
-      .catch(function (e) {
-        setWlMessage(e.message || "Could not load whitelabel state.", "error");
-      });
-  }
+    select.addEventListener("change", updateEmbedSelectionState);
 
-  function wireWhitelabelForm() {
-    var form = document.getElementById("whitelabel-form");
-    var clearBtn = document.getElementById("wl-clear-btn");
-    var pathEl = document.getElementById("wl-path");
-    if (!form || !clearBtn || !pathEl) return;
-
-    pathEl.addEventListener("input", function () {
-      pathEl.value = sanitizePathInput(pathEl.value).replace(/[^a-z0-9-]/g, "");
+    copyBtn.addEventListener("click", function () {
+      var slug = String(select.value || "").trim();
+      var card = cardsBySlug[slug];
+      var cardUrl = normalizeCardUrl(card && card.profile_link, slug);
+      if (!cardUrl) {
+        setEmbedStatus("Select a card first.");
+        return;
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(cardUrl)
+          .then(function () {
+            setEmbedStatus("Direct card URL copied.");
+          })
+          .catch(function () {
+            setEmbedStatus("Could not copy automatically. Copy from the link above.");
+          });
+      } else {
+        setEmbedStatus("Clipboard API not available. Copy from the link above.");
+      }
     });
 
     form.addEventListener("submit", function (ev) {
       ev.preventDefault();
-      setWlMessage("", "");
-      var slug = (document.getElementById("wl-card").value || "").trim().toLowerCase();
-      var customDomain = (document.getElementById("wl-domain").value || "").trim().toLowerCase();
-      var customPath = sanitizePathInput(document.getElementById("wl-path").value);
-      fetch("/whitelabel/save", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slug: slug, customDomain: customDomain, customPath: customPath }),
-      })
-        .then(parseJson)
-        .then(function (data) {
-          applyWlState(data.mapping || null);
-          setWlMessage("Whitelabel mapping saved.");
-          return fetch("/my-cards").then(parseJson).then(function (cardsData) {
-            renderCards(cardsData.cards || []);
-          });
-        })
-        .catch(function (e) {
-          setWlMessage(e.message || "Could not save mapping.", "error");
-        });
-    });
-
-    clearBtn.addEventListener("click", function () {
-      setWlMessage("", "");
-      fetch("/whitelabel/clear", {
-        method: "POST",
-      })
-        .then(parseJson)
-        .then(function () {
-          applyWlState(null);
-          setWlMessage("Whitelabel mapping cleared.");
-          return fetch("/my-cards").then(parseJson).then(function (cardsData) {
-            renderCards(cardsData.cards || []);
-          });
-        })
-        .catch(function (e) {
-          setWlMessage(e.message || "Could not clear mapping.", "error");
-        });
+      var slug = String(select.value || "").trim().toLowerCase();
+      if (!slug) {
+        setEmbedStatus("Please select a card first.");
+        return;
+      }
+      setEmbedStatus("Downloading index.html...");
+      window.location.href = "/website-embed/" + encodeURIComponent(slug);
     });
   }
 
@@ -186,7 +152,7 @@
   });
 
   showOnlyPanel("panel-overview");
-  wireWhitelabelForm();
+  wireWebsiteEmbedForm();
 
   fetch("/auth/me")
     .then(parseJson)
@@ -198,7 +164,8 @@
     })
     .then(function (data) {
       renderCards(data.cards || []);
-      return loadWhitelabelState();
+      fillWebsiteCardSelect(data.cards || []);
+      updateEmbedSelectionState();
     })
     .catch(function () {
       window.location.href = "/login";
