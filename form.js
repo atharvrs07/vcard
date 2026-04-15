@@ -16,6 +16,10 @@
   var slugEditedByUser = false;
   /** Set from /config when PUBLIC_BASE_URL is configured (production). */
   var resolvedPublicBase = "";
+  var query = new URLSearchParams(window.location.search);
+  var editSlug = String(query.get("edit") || "").trim().toLowerCase();
+  var isEditMode = !!editSlug;
+  if (isEditMode) slugEditedByUser = true;
 
   function getPublicOrigin() {
     var o = resolvedPublicBase || window.location.origin;
@@ -113,6 +117,12 @@
     var wrap = document.getElementById("slug-suggestions-wrap");
     var sugEl = document.getElementById("slug-suggestions");
     if (!line) return;
+
+    if (isEditMode) {
+      line.innerHTML = '<span class="text-info"><i class="fa fa-pencil"></i> Editing existing card URL.</span>';
+      if (wrap) wrap.hidden = true;
+      return;
+    }
 
     if (!slug) {
       line.innerHTML = '<span class="text-muted">Enter your name to generate a URL, or type a URL.</span>';
@@ -460,6 +470,112 @@
       .replace(/</g, "&lt;");
   }
 
+  function setValue(id, value) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.value = value == null ? "" : String(value);
+  }
+
+  function clearRows(selector) {
+    var nodes = document.querySelectorAll(selector);
+    nodes.forEach(function (n) {
+      n.remove();
+    });
+  }
+
+  function applyEditModeUi() {
+    if (!isEditMode) return;
+    var h1 = document.querySelector("h1.mb-3");
+    if (h1) h1.textContent = "Edit card";
+    var desc = document.querySelector("#btn-pay-publish").closest(".card-body").querySelector("p.small.text-muted.mb-2");
+    if (desc) desc.textContent = "Update your existing card details. This saves changes immediately without a new payment.";
+    var payBtn = document.getElementById("btn-pay-publish");
+    if (payBtn) {
+      payBtn.innerHTML = '<i class="fa fa-save mr-1"></i>Save changes';
+      payBtn.classList.remove("btn-lg");
+    }
+    var price = document.getElementById("publish-price-label");
+    if (price) price.textContent = "Editing mode";
+    var warn = document.getElementById("publish-config-warn");
+    if (warn) warn.hidden = true;
+    var slugInput = document.getElementById("card_slug");
+    if (slugInput) {
+      slugInput.value = editSlug;
+      slugInput.setAttribute("readonly", "readonly");
+    }
+  }
+
+  function populateFormFromProfile(card) {
+    if (!card || typeof card !== "object") return;
+    setValue("theme_color", card.theme_color || "#1e90ff");
+    updateThemeHexLabel();
+    setValue("companyname", card.companyname);
+    setValue("firstname", card.firstname);
+    setValue("designation", card.designation);
+    setValue("email", card.email);
+    setValue("phonenumber", card.phonenumber);
+    setValue("countrycode", card.countrycode || "+91");
+    setValue("whatsupno", card.whatsupno);
+    setValue("address", card.address);
+    setValue("logo", card.logo);
+    setValue("establishedyear", card.establishedyear);
+    setValue("otherbusiness", card.otherbusiness);
+    setValue("about", card.about);
+    setValue("googlepay", card.googlepay);
+    setValue("paytm", card.paytm);
+    setValue("paytm_QRcode", card.paytm_QRcode);
+    setValue("googlemap", card.googlemap);
+    setValue("website_url", card.website_url);
+    setValue("facebook", card.facebook);
+    setValue("twitter", card.twitter);
+    setValue("linkedin", card.linkedin);
+    setValue("youtube", card.youtube);
+    setValue("instagram", card.instagram);
+
+    var gallery = Array.isArray(card.gallery_images) ? card.gallery_images : [];
+    setValue("gallery_urls", gallery.map(function (g) { return (g && g.src) || ""; }).filter(Boolean).join("\n"));
+    var videos = Array.isArray(card.videos) ? card.videos : [];
+    setValue("video_urls", videos.map(function (v) { return (v && v.url) || ""; }).filter(Boolean).join("\n"));
+
+    clearRows("#services-rows .service-row");
+    (Array.isArray(card.services) ? card.services : []).forEach(function (svc) {
+      addServiceRow((svc && svc.title) || "", (svc && svc.fileUrl) || "", (svc && svc.link) || "", (svc && svc.description) || "");
+    });
+
+    clearRows("#custom-social-rows .custom-link-row");
+    (Array.isArray(card.custom_links) ? card.custom_links : []).forEach(function (link) {
+      addCustomLinkRow((link && link.label) || "", (link && link.url) || "");
+    });
+
+    var slug = String(card.card_slug || editSlug || "").trim().toLowerCase();
+    if (slug) {
+      setValue("card_slug", slug);
+      editSlug = slug;
+    }
+    updateCardUrlPreview();
+  }
+
+  function loadEditCard() {
+    if (!isEditMode) return Promise.resolve();
+    return fetch("/my-cards/" + encodeURIComponent(editSlug))
+      .then(function (r) {
+        return readJsonResponse(r).then(function (data) {
+          if (!r.ok) throw new Error(data.error || "Could not load card for editing.");
+          return data;
+        });
+      })
+      .then(function (data) {
+        populateFormFromProfile((data && data.card) || {});
+        slugEditedByUser = true;
+        sendPreview();
+        checkSlugStatus();
+      })
+      .catch(function (e) {
+        window.alert((e && e.message) || "Could not load card.");
+        window.location.href = "/dashboard";
+      });
+  }
+
   function wireFormInputs() {
     var ids = [
       "theme_color",
@@ -536,16 +652,63 @@
     }
     cards.slice().reverse().forEach(function (card) {
       var li = document.createElement("li");
-      li.className = "mb-1";
+      li.className = "mb-2";
       var slug = (card && card.slug) || "";
-      var href = (card && card.profile_link) || (slug ? getPublicOrigin() + "/" + slug : "#");
+      var href = slug ? (getPublicOrigin() + "/" + slug) : "#";
       li.innerHTML =
+        '<div class="d-flex flex-wrap align-items-center">' +
         '<a href="' +
         escapeAttr(href) +
-        '" target="_blank" rel="noopener">' +
+        '" target="_blank" rel="noopener" class="mr-2">' +
         escapeAttr(slug || href) +
-        "</a>";
+        "</a>" +
+        '<a class="btn btn-outline-info btn-sm mr-2 py-0 px-2" href="/form?edit=' + encodeURIComponent(slug) + '">Edit</a>' +
+        '<button type="button" class="btn btn-outline-danger btn-sm py-0 px-2 js-delete-card" data-slug="' + escapeAttr(slug) + '">Delete</button>' +
+        "</div>";
       listEl.appendChild(li);
+    });
+  }
+
+  function refreshMyCardsList() {
+    return fetch("/my-cards")
+      .then(function (r) {
+        return readJsonResponse(r).then(function (data) {
+          if (!r.ok) throw new Error(data.error || "Could not load saved cards.");
+          renderMyCards(data.cards || []);
+        });
+      });
+  }
+
+  function wireSavedCardsActions() {
+    var listEl = document.getElementById("my-cards-list");
+    if (!listEl) return;
+    listEl.addEventListener("click", function (ev) {
+      var btn = ev.target && ev.target.closest(".js-delete-card");
+      if (!btn) return;
+      var slug = String(btn.getAttribute("data-slug") || "").trim().toLowerCase();
+      if (!slug) return;
+      if (!window.confirm('Delete card "' + slug + '"? This cannot be undone.')) return;
+      btn.disabled = true;
+      fetch("/my-cards/" + encodeURIComponent(slug), { method: "DELETE" })
+        .then(function (r) {
+          return readJsonResponse(r).then(function (data) {
+            if (!r.ok) throw new Error(data.error || "Could not delete card.");
+            return data;
+          });
+        })
+        .then(function () {
+          if (isEditMode && slug === editSlug) {
+            window.location.href = "/form";
+            return;
+          }
+          return refreshMyCardsList();
+        })
+        .catch(function (e) {
+          window.alert((e && e.message) || "Could not delete card.");
+        })
+        .finally(function () {
+          btn.disabled = false;
+        });
     });
   }
 
@@ -562,13 +725,7 @@
         if (banner && data && data.account) {
           banner.textContent = "Signed in as " + (data.account.name || data.account.email || "Account");
         }
-        return fetch("/my-cards");
-      })
-      .then(function (r) {
-        return readJsonResponse(r).then(function (data) {
-          if (!r.ok) throw new Error(data.error || "Could not load saved cards.");
-          renderMyCards(data.cards || []);
-        });
+        return refreshMyCardsList();
       })
       .catch(function () {
         window.location.href = "/login";
@@ -665,10 +822,37 @@
 
   document.getElementById("btn-pay-publish").addEventListener("click", function () {
     var slug = (document.getElementById("card_slug") && document.getElementById("card_slug").value.trim().toLowerCase()) || "";
+    if (isEditMode) slug = editSlug;
     if (!isValidSlug(slug)) {
       window.alert(
         "Set a valid card URL: lowercase letters, numbers, single hyphens (not at start/end), max 32 characters."
       );
+      return;
+    }
+
+    if (isEditMode) {
+      var payload = profileForExport();
+      payload.card_slug = slug;
+      payload.profile_link = getPublicOrigin() + "/" + slug;
+      fetch("/my-cards/" + encodeURIComponent(slug), {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ profile: payload }),
+      })
+        .then(function (r) {
+          return readJsonResponse(r).then(function (data) {
+            if (!r.ok) throw new Error(data.error || "Could not update card.");
+            return data;
+          });
+        })
+        .then(function () {
+          window.alert("Card updated successfully.");
+          sendPreview();
+          refreshMyCardsList();
+        })
+        .catch(function (e) {
+          window.alert((e && e.message) || "Could not update card.");
+        });
       return;
     }
 
@@ -862,12 +1046,15 @@
         });
     });
   }
+  applyEditModeUi();
+  wireSavedCardsActions();
   wireFormInputs();
   updateThemeHexLabel();
   updateCardUrlPreview();
   document.getElementById("card-origin-prefix").textContent = getPublicOrigin() + "/";
   loadPublishConfig();
   loadAccountState();
+  loadEditCard();
 
   iframe.addEventListener("load", function onLoad() {
     iframe.removeEventListener("load", onLoad);

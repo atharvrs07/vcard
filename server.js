@@ -100,6 +100,54 @@ function buildCardUrl(req, slug) {
   return getPublicBaseUrl(req) + "/" + cleanSlug;
 }
 
+function buildCardPath(slug) {
+  const cleanSlug = String(slug || "").trim().toLowerCase();
+  return cleanSlug ? "/" + cleanSlug : "/";
+}
+
+function sanitizeStoredCardLinks() {
+  const users = readUsers();
+  let usersChanged = false;
+  const nextUsers = users.map((u) => {
+    const slug = String((u && u.card_slug) || "").trim().toLowerCase();
+    if (!slug || !isValidSlug(slug)) return u;
+    const expected = buildCardPath(slug);
+    const current = String((u && u.profile_link) || "").trim();
+    const hasLegacyDomainFields = !!((u && Object.prototype.hasOwnProperty.call(u, "custom_domain")) || (u && Object.prototype.hasOwnProperty.call(u, "custom_path")));
+    if (current === expected && !hasLegacyDomainFields) return u;
+    usersChanged = true;
+    const cleaned = { ...u, profile_link: expected };
+    delete cleaned.custom_domain;
+    delete cleaned.custom_path;
+    return cleaned;
+  });
+  if (usersChanged) {
+    writeUsers(nextUsers);
+  }
+
+  const accounts = readAccounts();
+  let accountsChanged = false;
+  const nextAccounts = accounts.map((a) => {
+    const cards = Array.isArray(a && a.cards) ? a.cards : [];
+    let cardChanged = false;
+    const normalizedCards = cards.map((c) => {
+      const slug = String((c && c.slug) || "").trim().toLowerCase();
+      if (!slug || !isValidSlug(slug)) return c;
+      const expected = buildCardPath(slug);
+      const current = String((c && c.profile_link) || "").trim();
+      if (current === expected) return c;
+      cardChanged = true;
+      return { ...c, profile_link: expected };
+    });
+    if (!cardChanged) return a;
+    accountsChanged = true;
+    return { ...a, cards: normalizedCards };
+  });
+  if (accountsChanged) {
+    writeAccounts(nextAccounts);
+  }
+}
+
 function migrateLegacyDataFilesIfNeeded() {
   const users = readUsers();
   if (users.length > 0) return;
@@ -128,8 +176,6 @@ function migrateLegacyDataFilesIfNeeded() {
     console.log(`Migrated ${incoming.length} legacy profile(s) from data/*.json to users.json`);
   }
 }
-
-migrateLegacyDataFilesIfNeeded();
 
 const imageUpload = multer({
   storage: multer.diskStorage({
@@ -201,6 +247,9 @@ function slugExists(slug) {
   const { idx } = findUserBySlug(slug);
   return idx >= 0;
 }
+
+migrateLegacyDataFilesIfNeeded();
+sanitizeStoredCardLinks();
 
 /** Canonical public URL for this deployment (e.g. https://ecard.xevonet.com). No trailing slash. */
 function getPublicBaseUrl(req) {
@@ -445,7 +494,7 @@ function getAccountCardsWithStats(account) {
       const slug = String((u && u.card_slug) || "").trim().toLowerCase();
       return {
         slug,
-        profile_link: String((u && u.profile_link) || "").trim() || "/" + slug,
+        profile_link: buildCardPath(slug),
         saved_at: null,
         view_count: Number((u && u.view_count) || 0) || 0,
       };
@@ -458,7 +507,7 @@ function getAccountCardsWithStats(account) {
     const user = userBySlug.get(slug);
     merged.set(slug, {
       slug,
-      profile_link: (user && user.profile_link) || (c && c.profile_link) || "/" + slug,
+      profile_link: buildCardPath(slug),
       saved_at: (c && c.saved_at) || null,
       view_count: Number((user && user.view_count) || 0) || 0,
     });
@@ -472,7 +521,7 @@ function getAccountCardsWithStats(account) {
     }
     const prev = merged.get(c.slug);
     prev.view_count = Math.max(Number(prev.view_count) || 0, Number(c.view_count) || 0);
-    if (!prev.profile_link && c.profile_link) prev.profile_link = c.profile_link;
+    if (!prev.profile_link) prev.profile_link = buildCardPath(c.slug);
     merged.set(c.slug, prev);
   });
 
@@ -795,6 +844,121 @@ app.get("/my-cards", authRequired, (req, res) => {
   res.json({ cards });
 });
 
+function getOwnedCardOrError(req, res, slug) {
+  if (!isValidSlug(slug)) {
+    res.status(400).json({ error: "Invalid card slug." });
+    return null;
+  }
+  const found = findUserBySlug(slug);
+  if (found.idx < 0 || !found.user) {
+    res.status(404).json({ error: "Card not found." });
+    return null;
+  }
+  const ownerId = String((found.user && found.user.owner_account_id) || "");
+  if (ownerId !== String((req.account && req.account.id) || "")) {
+    res.status(403).json({ error: "You can only manage your own cards." });
+    return null;
+  }
+  return found;
+}
+
+app.get("/my-cards/:slug", authRequired, (req, res) => {
+  const slug = String(req.params.slug || "").trim().toLowerCase();
+  const found = getOwnedCardOrError(req, res, slug);
+  if (!found) return;
+  const card = { ...found.user, profile_link: buildCardUrl(req, slug) };
+  res.json({ card });
+});
+
+app.put("/my-cards/:slug", authRequired, (req, res) => {
+  const slug = String(req.params.slug || "").trim().toLowerCase();
+  const found = getOwnedCardOrError(req, res, slug);
+  if (!found) return;
+
+  let incoming = req.body && req.body.profile;
+  if (typeof incoming === "string") {
+    try {
+      incoming = JSON.parse(incoming);
+    } catch {
+      return res.status(400).json({ error: "Invalid profile payload." });
+    }
+  }
+  if (!incoming || typeof incoming !== "object") {
+    return res.status(400).json({ error: "Missing profile payload." });
+  }
+
+  const existing = found.user || {};
+  const updated = {
+    ...existing,
+    ...incoming,
+    card_slug: slug,
+    owner_account_id: existing.owner_account_id,
+    profile_link: buildCardUrl(req, slug),
+    view_count: Number(existing.view_count) || 0,
+  };
+  delete updated.__preview;
+  delete updated.custom_domain;
+  delete updated.custom_path;
+
+  try {
+    found.users[found.idx] = updated;
+    writeUsers(found.users);
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: "Could not update card." });
+  }
+
+  try {
+    const acc = findAccountById(req.account.id);
+    if (acc.idx >= 0 && acc.account) {
+      const cards = Array.isArray(acc.account.cards) ? acc.account.cards : [];
+      const cardIdx = cards.findIndex((c) => String((c && c.slug) || "").trim().toLowerCase() === slug);
+      const cardRow = {
+        slug,
+        profile_link: "/" + slug,
+        saved_at: new Date().toISOString(),
+      };
+      if (cardIdx >= 0) cards[cardIdx] = { ...(cards[cardIdx] || {}), ...cardRow };
+      else cards.push(cardRow);
+      acc.account.cards = cards;
+      acc.accounts[acc.idx] = acc.account;
+      writeAccounts(acc.accounts);
+    }
+  } catch (e) {
+    console.error("account card sync failed:", e);
+  }
+
+  res.json({ ok: true, card: updated });
+});
+
+app.delete("/my-cards/:slug", authRequired, (req, res) => {
+  const slug = String(req.params.slug || "").trim().toLowerCase();
+  const found = getOwnedCardOrError(req, res, slug);
+  if (!found) return;
+
+  try {
+    found.users.splice(found.idx, 1);
+    writeUsers(found.users);
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: "Could not delete card." });
+  }
+
+  try {
+    const acc = findAccountById(req.account.id);
+    if (acc.idx >= 0 && acc.account) {
+      const cards = Array.isArray(acc.account.cards) ? acc.account.cards : [];
+      acc.account.cards = cards.filter((c) => String((c && c.slug) || "").trim().toLowerCase() !== slug);
+      acc.accounts[acc.idx] = acc.account;
+      writeAccounts(acc.accounts);
+    }
+  } catch (e) {
+    console.error("account card cleanup failed:", e);
+  }
+
+  res.json({ ok: true, slug });
+});
+
 app.get("/analytics-data", authRequired, (req, res) => {
   const cards = getAccountCardsWithStats(req.account);
   const totalCards = cards.length;
@@ -1051,6 +1215,7 @@ function profileHandler(req, res) {
   }
   try {
     const profile = found.user;
+    profile.profile_link = buildCardUrl(req, slug);
     let vc = Number(profile.view_count);
     if (Number.isNaN(vc)) vc = 0;
     profile.view_count = vc + 1;
@@ -1101,7 +1266,7 @@ app.use((err, req, res, next) => {
   }
 });
 
-const PORT = Number(process.env.PORT) || 5000;
+const PORT = 2000;
 app.listen(PORT, () => {
   const pub = (process.env.PUBLIC_BASE_URL || "").trim().replace(/\/+$/, "");
   const base = pub || `http://localhost:${PORT}`;

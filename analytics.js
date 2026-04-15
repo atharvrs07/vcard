@@ -22,7 +22,7 @@
     }
     cards.forEach(function (card) {
       var slug = (card && card.slug) || "";
-      var href = (card && card.profile_link) || (slug ? (window.location.origin + "/" + slug) : "#");
+      var href = slug ? (window.location.origin + "/" + slug) : "#";
       var tr = document.createElement("tr");
       tr.innerHTML =
         "<td>" + (slug || "-").replace(/</g, "&lt;") + "</td>" +

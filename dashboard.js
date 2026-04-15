@@ -33,13 +33,19 @@
     }
     cards.forEach(function (c) {
       var li = document.createElement("li");
+      li.className = "mb-2";
       var slug = (c && c.slug) || "";
-      var href = (c && c.profile_link) || (slug ? (window.location.origin + "/" + slug) : "#");
+      var href = slug ? (window.location.origin + "/" + slug) : "#";
       var views = Number(c && c.view_count) || 0;
       li.innerHTML =
-        '<a href="' + href.replace(/"/g, "&quot;") + '" target="_blank" rel="noopener">' +
+        '<div class="d-flex flex-wrap align-items-center">' +
+        '<a href="' + href.replace(/"/g, "&quot;") + '" target="_blank" rel="noopener" class="mr-2">' +
         (slug || href).replace(/</g, "&lt;") +
-        "</a> · " + views + " views";
+        "</a>" +
+        '<span class="mr-2 muted small">' + views + " views</span>" +
+        '<a class="btn btn-outline-info btn-sm mr-2 py-0 px-2" href="/form?edit=' + encodeURIComponent(slug) + '">Edit</a>' +
+        '<button type="button" class="btn btn-outline-danger btn-sm py-0 px-2 js-delete-card" data-slug="' + String(slug).replace(/"/g, "&quot;") + '">Delete</button>' +
+        "</div>";
       list.appendChild(li);
     });
   }
@@ -49,10 +55,6 @@
     // This avoids showing stale external URLs previously saved in profile_link.
     var cleanSlug = String(slug || "").trim().toLowerCase();
     if (cleanSlug) return window.location.origin + "/" + cleanSlug;
-    var s = String(raw || "").trim();
-    if (s && /^https?:\/\//i.test(s)) return s;
-    if (s.startsWith("/")) return window.location.origin + s;
-    if (s) return window.location.origin + "/" + s.replace(/^\/+/, "");
     return "";
   }
 
@@ -145,6 +147,41 @@
     });
   }
 
+  function reloadCardsAndEmbed() {
+    return fetch("/my-cards")
+      .then(parseJson)
+      .then(function (data) {
+        var cards = (data && data.cards) || [];
+        renderCards(cards);
+        fillWebsiteCardSelect(cards);
+        updateEmbedSelectionState();
+      });
+  }
+
+  function wireCardActions() {
+    var list = document.getElementById("cards-list");
+    if (!list) return;
+    list.addEventListener("click", function (ev) {
+      var btn = ev.target && ev.target.closest(".js-delete-card");
+      if (!btn) return;
+      var slug = String(btn.getAttribute("data-slug") || "").trim().toLowerCase();
+      if (!slug) return;
+      if (!window.confirm('Delete card "' + slug + '"? This cannot be undone.')) return;
+      btn.disabled = true;
+      fetch("/my-cards/" + encodeURIComponent(slug), { method: "DELETE" })
+        .then(parseJson)
+        .then(function () {
+          return reloadCardsAndEmbed();
+        })
+        .catch(function (e) {
+          window.alert((e && e.message) || "Could not delete card.");
+        })
+        .finally(function () {
+          btn.disabled = false;
+        });
+    });
+  }
+
   document.querySelectorAll("#dashboard-tabs .nav-link").forEach(function (btn) {
     btn.addEventListener("click", function () {
       showOnlyPanel(btn.getAttribute("data-target"));
@@ -153,6 +190,7 @@
 
   showOnlyPanel("panel-overview");
   wireWebsiteEmbedForm();
+  wireCardActions();
 
   fetch("/auth/me")
     .then(parseJson)
@@ -160,12 +198,7 @@
       var name = (data.account && (data.account.name || data.account.email)) || "there";
       var w = document.getElementById("welcome-line");
       if (w) w.textContent = "Welcome, " + name;
-      return fetch("/my-cards").then(parseJson);
-    })
-    .then(function (data) {
-      renderCards(data.cards || []);
-      fillWebsiteCardSelect(data.cards || []);
-      updateEmbedSelectionState();
+      return reloadCardsAndEmbed();
     })
     .catch(function () {
       window.location.href = "/login";
