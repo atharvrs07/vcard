@@ -21,6 +21,171 @@
   var isEditMode = !!editSlug;
   if (isEditMode) slugEditedByUser = true;
 
+  var COUNTRY_CODES = [
+    { name: "Afghanistan", dial: "+93" },
+    { name: "Albania", dial: "+355" },
+    { name: "Algeria", dial: "+213" },
+    { name: "Andorra", dial: "+376" },
+    { name: "Angola", dial: "+244" },
+    { name: "Argentina", dial: "+54" },
+    { name: "Armenia", dial: "+374" },
+    { name: "Australia", dial: "+61" },
+    { name: "Austria", dial: "+43" },
+    { name: "Azerbaijan", dial: "+994" },
+    { name: "Bahrain", dial: "+973" },
+    { name: "Bangladesh", dial: "+880" },
+    { name: "Belarus", dial: "+375" },
+    { name: "Belgium", dial: "+32" },
+    { name: "Belize", dial: "+501" },
+    { name: "Benin", dial: "+229" },
+    { name: "Bhutan", dial: "+975" },
+    { name: "Bolivia", dial: "+591" },
+    { name: "Bosnia and Herzegovina", dial: "+387" },
+    { name: "Botswana", dial: "+267" },
+    { name: "Brazil", dial: "+55" },
+    { name: "Brunei", dial: "+673" },
+    { name: "Bulgaria", dial: "+359" },
+    { name: "Burkina Faso", dial: "+226" },
+    { name: "Burundi", dial: "+257" },
+    { name: "Cambodia", dial: "+855" },
+    { name: "Cameroon", dial: "+237" },
+    { name: "Canada", dial: "+1" },
+    { name: "Chad", dial: "+235" },
+    { name: "Chile", dial: "+56" },
+    { name: "China", dial: "+86" },
+    { name: "Colombia", dial: "+57" },
+    { name: "Comoros", dial: "+269" },
+    { name: "Congo", dial: "+242" },
+    { name: "Costa Rica", dial: "+506" },
+    { name: "Croatia", dial: "+385" },
+    { name: "Cuba", dial: "+53" },
+    { name: "Cyprus", dial: "+357" },
+    { name: "Czech Republic", dial: "+420" },
+    { name: "Denmark", dial: "+45" },
+    { name: "Djibouti", dial: "+253" },
+    { name: "Dominican Republic", dial: "+1" },
+    { name: "Ecuador", dial: "+593" },
+    { name: "Egypt", dial: "+20" },
+    { name: "El Salvador", dial: "+503" },
+    { name: "Estonia", dial: "+372" },
+    { name: "Eswatini", dial: "+268" },
+    { name: "Ethiopia", dial: "+251" },
+    { name: "Finland", dial: "+358" },
+    { name: "France", dial: "+33" },
+    { name: "Gabon", dial: "+241" },
+    { name: "Gambia", dial: "+220" },
+    { name: "Georgia", dial: "+995" },
+    { name: "Germany", dial: "+49" },
+    { name: "Ghana", dial: "+233" },
+    { name: "Greece", dial: "+30" },
+    { name: "Guatemala", dial: "+502" },
+    { name: "Guinea", dial: "+224" },
+    { name: "Guyana", dial: "+592" },
+    { name: "Haiti", dial: "+509" },
+    { name: "Honduras", dial: "+504" },
+    { name: "Hong Kong", dial: "+852" },
+    { name: "Hungary", dial: "+36" },
+    { name: "Iceland", dial: "+354" },
+    { name: "India", dial: "+91" },
+    { name: "Indonesia", dial: "+62" },
+    { name: "Iran", dial: "+98" },
+    { name: "Iraq", dial: "+964" },
+    { name: "Ireland", dial: "+353" },
+    { name: "Israel", dial: "+972" },
+    { name: "Italy", dial: "+39" },
+    { name: "Jamaica", dial: "+1" },
+    { name: "Japan", dial: "+81" },
+    { name: "Jordan", dial: "+962" },
+    { name: "Kazakhstan", dial: "+7" },
+    { name: "Kenya", dial: "+254" },
+    { name: "Kuwait", dial: "+965" },
+    { name: "Kyrgyzstan", dial: "+996" },
+    { name: "Laos", dial: "+856" },
+    { name: "Latvia", dial: "+371" },
+    { name: "Lebanon", dial: "+961" },
+    { name: "Lesotho", dial: "+266" },
+    { name: "Liberia", dial: "+231" },
+    { name: "Libya", dial: "+218" },
+    { name: "Lithuania", dial: "+370" },
+    { name: "Luxembourg", dial: "+352" },
+    { name: "Macao", dial: "+853" },
+    { name: "Madagascar", dial: "+261" },
+    { name: "Malawi", dial: "+265" },
+    { name: "Malaysia", dial: "+60" },
+    { name: "Maldives", dial: "+960" },
+    { name: "Mali", dial: "+223" },
+    { name: "Malta", dial: "+356" },
+    { name: "Mauritania", dial: "+222" },
+    { name: "Mauritius", dial: "+230" },
+    { name: "Mexico", dial: "+52" },
+    { name: "Moldova", dial: "+373" },
+    { name: "Mongolia", dial: "+976" },
+    { name: "Montenegro", dial: "+382" },
+    { name: "Morocco", dial: "+212" },
+    { name: "Mozambique", dial: "+258" },
+    { name: "Myanmar", dial: "+95" },
+    { name: "Namibia", dial: "+264" },
+    { name: "Nepal", dial: "+977" },
+    { name: "Netherlands", dial: "+31" },
+    { name: "New Zealand", dial: "+64" },
+    { name: "Nicaragua", dial: "+505" },
+    { name: "Niger", dial: "+227" },
+    { name: "Nigeria", dial: "+234" },
+    { name: "North Korea", dial: "+850" },
+    { name: "North Macedonia", dial: "+389" },
+    { name: "Norway", dial: "+47" },
+    { name: "Oman", dial: "+968" },
+    { name: "Pakistan", dial: "+92" },
+    { name: "Panama", dial: "+507" },
+    { name: "Paraguay", dial: "+595" },
+    { name: "Peru", dial: "+51" },
+    { name: "Philippines", dial: "+63" },
+    { name: "Poland", dial: "+48" },
+    { name: "Portugal", dial: "+351" },
+    { name: "Qatar", dial: "+974" },
+    { name: "Romania", dial: "+40" },
+    { name: "Russia", dial: "+7" },
+    { name: "Rwanda", dial: "+250" },
+    { name: "Saudi Arabia", dial: "+966" },
+    { name: "Senegal", dial: "+221" },
+    { name: "Serbia", dial: "+381" },
+    { name: "Sierra Leone", dial: "+232" },
+    { name: "Singapore", dial: "+65" },
+    { name: "Slovakia", dial: "+421" },
+    { name: "Slovenia", dial: "+386" },
+    { name: "Somalia", dial: "+252" },
+    { name: "South Africa", dial: "+27" },
+    { name: "South Korea", dial: "+82" },
+    { name: "Spain", dial: "+34" },
+    { name: "Sri Lanka", dial: "+94" },
+    { name: "Sudan", dial: "+249" },
+    { name: "Suriname", dial: "+597" },
+    { name: "Sweden", dial: "+46" },
+    { name: "Switzerland", dial: "+41" },
+    { name: "Syria", dial: "+963" },
+    { name: "Taiwan", dial: "+886" },
+    { name: "Tajikistan", dial: "+992" },
+    { name: "Tanzania", dial: "+255" },
+    { name: "Thailand", dial: "+66" },
+    { name: "Togo", dial: "+228" },
+    { name: "Trinidad and Tobago", dial: "+1" },
+    { name: "Tunisia", dial: "+216" },
+    { name: "Turkey", dial: "+90" },
+    { name: "Turkmenistan", dial: "+993" },
+    { name: "Uganda", dial: "+256" },
+    { name: "Ukraine", dial: "+380" },
+    { name: "United Arab Emirates", dial: "+971" },
+    { name: "United Kingdom", dial: "+44" },
+    { name: "United States", dial: "+1" },
+    { name: "Uruguay", dial: "+598" },
+    { name: "Uzbekistan", dial: "+998" },
+    { name: "Venezuela", dial: "+58" },
+    { name: "Vietnam", dial: "+84" },
+    { name: "Yemen", dial: "+967" },
+    { name: "Zambia", dial: "+260" },
+    { name: "Zimbabwe", dial: "+263" },
+  ];
+
   function getPublicOrigin() {
     var o = resolvedPublicBase || window.location.origin;
     // Local dev guard: avoid https://localhost URLs when app runs on plain http.
@@ -31,6 +196,106 @@
       o = window.location.origin;
     }
     return String(o).replace(/\/+$/, "");
+  }
+
+  function normalizeCountryCode(raw) {
+    var digits = String(raw || "").replace(/\D/g, "");
+    return digits ? "+" + digits : "+91";
+  }
+
+  function getPhoneDigits(raw) {
+    return String(raw || "").replace(/\D/g, "");
+  }
+
+  function getPhoneFormatRule(countryCode) {
+    var cc = normalizeCountryCode(countryCode);
+    if (cc === "+1") return { kind: "nanp", hint: "+1 (123) 456 7890", groups: [3, 3, 4] };
+    if (cc === "+91") return { kind: "grouped", hint: "+91 12345 67890", groups: [5, 5] };
+    if (cc === "+44") return { kind: "grouped", hint: "+44 1234 567 890", groups: [4, 3, 3] };
+    if (cc === "+61") return { kind: "grouped", hint: "+61 4123 456 789", groups: [4, 3, 3] };
+    if (cc === "+971") return { kind: "grouped", hint: "+971 50 123 4567", groups: [2, 3, 4] };
+    if (cc === "+65") return { kind: "grouped", hint: "+65 1234 5678", groups: [4, 4] };
+    return { kind: "grouped", hint: cc + " 123 456 7890", groups: [3, 3, 4] };
+  }
+
+  function formatWithGroups(digits, groups) {
+    var left = String(digits || "");
+    var out = [];
+    for (var i = 0; i < groups.length; i++) {
+      if (!left) break;
+      var take = groups[i];
+      out.push(left.slice(0, take));
+      left = left.slice(take);
+    }
+    if (left) out.push(left);
+    return out.join(" ").trim();
+  }
+
+  function formatPhoneLocal(countryCode, rawPhone) {
+    var digits = getPhoneDigits(rawPhone);
+    if (!digits) return "";
+    var rule = getPhoneFormatRule(countryCode);
+    if (rule.kind === "nanp") {
+      var d = digits.slice(0, 10);
+      if (d.length <= 3) return "(" + d;
+      if (d.length <= 6) return "(" + d.slice(0, 3) + ") " + d.slice(3);
+      return "(" + d.slice(0, 3) + ") " + d.slice(3, 6) + " " + d.slice(6);
+    }
+    return formatWithGroups(digits, rule.groups);
+  }
+
+  function formatPhoneFull(countryCode, rawPhone) {
+    var cc = normalizeCountryCode(countryCode);
+    var local = formatPhoneLocal(cc, rawPhone);
+    return local ? cc + " " + local : cc;
+  }
+
+  function renderPhoneFormatHint() {
+    var hintEl = document.getElementById("phone-format-preview");
+    var ccEl = document.getElementById("countrycode");
+    if (!hintEl || !ccEl) return;
+    var cc = normalizeCountryCode(ccEl.value);
+    hintEl.textContent = "Format: " + getPhoneFormatRule(cc).hint;
+  }
+
+  function applyPhoneFormatting() {
+    var ccEl = document.getElementById("countrycode");
+    var phoneEl = document.getElementById("phonenumber");
+    if (!ccEl || !phoneEl) return;
+    var normalized = normalizeCountryCode(ccEl.value);
+    ccEl.value = normalized;
+    phoneEl.value = formatPhoneLocal(normalized, phoneEl.value);
+    renderPhoneFormatHint();
+  }
+
+  function populateCountryCodes() {
+    var ccEl = document.getElementById("countrycode");
+    if (!ccEl) return;
+    var current = normalizeCountryCode(ccEl.value || "+91");
+    var options = COUNTRY_CODES.slice().sort(function (a, b) {
+      return String(a.name).localeCompare(String(b.name));
+    });
+    ccEl.innerHTML = options
+      .map(function (item) {
+        return (
+          '<option value="' +
+          item.dial +
+          '">' +
+          item.name.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;") +
+          " (" +
+          item.dial +
+          ")</option>"
+        );
+      })
+      .join("");
+    if (!ccEl.querySelector('option[value="' + current + '"]')) {
+      var custom = document.createElement("option");
+      custom.value = current;
+      custom.textContent = "Custom (" + current + ")";
+      ccEl.appendChild(custom);
+    }
+    ccEl.value = current;
+    renderPhoneFormatHint();
   }
 
   /** Avoid JSON.parse on HTML error pages (413/502) or empty bodies from proxies. */
@@ -323,8 +588,8 @@
       firstname: document.getElementById("firstname").value.trim(),
       designation: document.getElementById("designation").value.trim(),
       email: document.getElementById("email").value.trim(),
-      phonenumber: document.getElementById("phonenumber").value.trim(),
-      countrycode: document.getElementById("countrycode").value.trim() || "+91",
+      phonenumber: getPhoneDigits(document.getElementById("phonenumber").value),
+      countrycode: normalizeCountryCode(document.getElementById("countrycode").value),
       whatsupno: document.getElementById("whatsupno").value.trim(),
       address: document.getElementById("address").value.trim(),
       logo: document.getElementById("logo").value.trim(),
@@ -505,7 +770,7 @@
     if (!isEditMode) return;
     var h1 = document.querySelector("h1.mb-3");
     if (h1) h1.textContent = "Edit card";
-    var desc = document.querySelector("#btn-pay-publish").closest(".card-body").querySelector("p.small.text-muted.mb-2");
+    var desc = document.getElementById("publish-help-text");
     if (desc) desc.textContent = "Update your existing card details. This saves changes immediately without a new payment.";
     var payBtn = document.getElementById("btn-pay-publish");
     if (payBtn) {
@@ -513,9 +778,12 @@
       payBtn.classList.remove("btn-lg");
     }
     var price = document.getElementById("publish-price-label");
-    if (price) price.textContent = "Editing mode";
+    if (price) price.textContent = "";
+    var priceWrap = document.getElementById("publish-price-wrap");
+    if (priceWrap) priceWrap.hidden = true;
     var warn = document.getElementById("publish-config-warn");
     if (warn) warn.hidden = true;
+    if (desc) desc.hidden = true;
     var slugInput = document.getElementById("card_slug");
     if (slugInput) {
       slugInput.value = editSlug;
@@ -531,8 +799,17 @@
     setValue("firstname", card.firstname);
     setValue("designation", card.designation);
     setValue("email", card.email);
-    setValue("phonenumber", card.phonenumber);
-    setValue("countrycode", card.countrycode || "+91");
+    var normalizedCode = normalizeCountryCode(card.countrycode || "+91");
+    var ccSelect = document.getElementById("countrycode");
+    if (ccSelect && !ccSelect.querySelector('option[value="' + normalizedCode + '"]')) {
+      var customOpt = document.createElement("option");
+      customOpt.value = normalizedCode;
+      customOpt.textContent = "Custom (" + normalizedCode + ")";
+      ccSelect.appendChild(customOpt);
+    }
+    setValue("countrycode", normalizedCode);
+    setValue("phonenumber", getPhoneDigits(card.phonenumber));
+    applyPhoneFormatting();
     setValue("whatsupno", card.whatsupno);
     setValue("address", card.address);
     setValue("logo", card.logo);
@@ -633,6 +910,15 @@
   }
 
   function loadPublishConfig() {
+    if (isEditMode) {
+      var desc = document.getElementById("publish-help-text");
+      var priceWrap = document.getElementById("publish-price-wrap");
+      var warn = document.getElementById("publish-config-warn");
+      if (desc) desc.hidden = true;
+      if (priceWrap) priceWrap.hidden = true;
+      if (warn) warn.hidden = true;
+      return;
+    }
     fetch("/config")
       .then(function (r) {
         return readJsonResponse(r);
@@ -1049,6 +1335,22 @@
       });
   });
 
+  populateCountryCodes();
+  var countryCodeEl = document.getElementById("countrycode");
+  var phoneEl = document.getElementById("phonenumber");
+  if (countryCodeEl) {
+    countryCodeEl.addEventListener("change", function () {
+      applyPhoneFormatting();
+      sendPreviewDebounced();
+    });
+  }
+  if (phoneEl) {
+    phoneEl.addEventListener("input", function () {
+      applyPhoneFormatting();
+      sendPreviewDebounced();
+    });
+  }
+
   iframe = document.getElementById("preview-frame");
   var logoutBtn = document.getElementById("btn-logout");
   if (logoutBtn) {
@@ -1063,6 +1365,7 @@
   applyEditModeUi();
   wireSavedCardsActions();
   wireFormInputs();
+  applyPhoneFormatting();
   updateThemeHexLabel();
   updateCardUrlPreview();
   document.getElementById("card-origin-prefix").textContent = getPublicOrigin() + "/";

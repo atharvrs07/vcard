@@ -66,11 +66,12 @@
             <div class="form-row">
               <div class="form-group col-md-4">
                 <label for="countrycode">Country code</label>
-                <input type="text" class="form-control" id="countrycode" placeholder="+91">
+                <select class="form-control" id="countrycode"></select>
               </div>
               <div class="form-group col-md-4">
                 <label for="phonenumber">Phone</label>
-                <input type="text" class="form-control" id="phonenumber" inputmode="numeric">
+                <input type="tel" class="form-control" id="phonenumber" inputmode="tel" autocomplete="tel-national">
+                <p class="small text-muted mb-0 mt-1" id="phone-format-preview">Format: +91 12345 67890</p>
               </div>
               <div class="form-group col-md-4">
                 <label for="whatsupno">WhatsApp <span class="text-muted">(same as phone if blank)</span></label>
@@ -235,8 +236,8 @@
 
         <div class="card mb-5 border-primary">
           <div class="card-body">
-            <p class="small text-muted mb-2">Publishing uses Razorpay checkout. After payment succeeds, your card is saved and you are taken to your shareable link.</p>
-            <p class="mb-2"><strong id="publish-price-label">—</strong></p>
+            <p class="small text-muted mb-2" id="publish-help-text">Publishing uses Razorpay checkout. After payment succeeds, your card is saved and you are taken to your shareable link.</p>
+            <p class="mb-2" id="publish-price-wrap"><strong id="publish-price-label">—</strong></p>
             <p id="publish-config-warn" class="small text-warning" hidden>Server keys are not configured. Set <code>RAZORPAY_KEY_ID</code> and <code>RAZORPAY_KEY_SECRET</code> (and optional <code>CARD_PRICE_PAISE</code>).</p>
             <button type="button" class="btn btn-primary btn-lg" id="btn-pay-publish"><i class="fa fa-lock mr-1"></i>Pay &amp; publish card</button>
           </div>

@@ -1,2 +1,6 @@
 node_modules/
 .env
+data/users.json
+data/accounts.json
+users.json
+accounts.json

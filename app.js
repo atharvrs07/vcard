@@ -81,7 +81,7 @@
       "FN:" + escapeVcard(name),
       "ORG:" + escapeVcard(p.companyname || ""),
       "TITLE:" + escapeVcard((p.designation || "").replace(/\s+/g, " ").trim()),
-      "TEL;TYPE=CELL:" + escapeVcard((p.countrycode || "").replace(/\+/g, "") + (p.phonenumber || "")),
+      "TEL;TYPE=CELL:" + escapeVcard(getPhoneDigits(p.countrycode) + getPhoneDigits(p.phonenumber)),
       "EMAIL;TYPE=INTERNET:" + escapeVcard(p.email || ""),
       "ADR;TYPE=WORK:;;" + escapeVcard(p.address || "") + ";;;;",
       "URL:" + escapeVcard(p.website_url || ""),
@@ -116,6 +116,57 @@
       return s.replace(/^https:\/\//i, "http://");
     }
     return s;
+  }
+
+  function normalizeCountryCode(raw) {
+    var digits = String(raw || "").replace(/\D/g, "");
+    return digits ? "+" + digits : "+91";
+  }
+
+  function getPhoneDigits(raw) {
+    return String(raw || "").replace(/\D/g, "");
+  }
+
+  function getPhoneFormatRule(countryCode) {
+    var cc = normalizeCountryCode(countryCode);
+    if (cc === "+1") return { kind: "nanp", groups: [3, 3, 4] };
+    if (cc === "+91") return { kind: "grouped", groups: [5, 5] };
+    if (cc === "+44") return { kind: "grouped", groups: [4, 3, 3] };
+    if (cc === "+61") return { kind: "grouped", groups: [4, 3, 3] };
+    if (cc === "+971") return { kind: "grouped", groups: [2, 3, 4] };
+    if (cc === "+65") return { kind: "grouped", groups: [4, 4] };
+    return { kind: "grouped", groups: [3, 3, 4] };
+  }
+
+  function formatWithGroups(digits, groups) {
+    var left = String(digits || "");
+    var out = [];
+    for (var i = 0; i < groups.length; i++) {
+      if (!left) break;
+      out.push(left.slice(0, groups[i]));
+      left = left.slice(groups[i]);
+    }
+    if (left) out.push(left);
+    return out.join(" ").trim();
+  }
+
+  function formatPhoneLocal(countryCode, rawPhone) {
+    var digits = getPhoneDigits(rawPhone);
+    if (!digits) return "";
+    var rule = getPhoneFormatRule(countryCode);
+    if (rule.kind === "nanp") {
+      var d = digits.slice(0, 10);
+      if (d.length <= 3) return "(" + d;
+      if (d.length <= 6) return "(" + d.slice(0, 3) + ") " + d.slice(3);
+      return "(" + d.slice(0, 3) + ") " + d.slice(3, 6) + " " + d.slice(6);
+    }
+    return formatWithGroups(digits, rule.groups);
+  }
+
+  function formatPhoneFull(countryCode, rawPhone) {
+    var cc = normalizeCountryCode(countryCode);
+    var local = formatPhoneLocal(cc, rawPhone);
+    return local ? cc + " " + local : "";
   }
 
   function escapeHtml(s) {
@@ -163,8 +214,8 @@
     var em = (p.email || "").trim();
     var addr = (p.address || "").trim();
     var web = (p.website_url || "").trim();
-    var cc = (p.countrycode || "+91").replace(/\s/g, "");
-    var phone = (p.phonenumber || "").replace(/\s/g, "");
+    var cc = normalizeCountryCode(p.countrycode || "+91");
+    var phone = getPhoneDigits(p.phonenumber || "");
     var waLineVal = (p.whatsupno || phone || "").trim();
     var mapUrl = (p.googlemap || "").trim();
     var waDigits = (p.whatsupno || phone).replace(/\D/g, "");
@@ -337,8 +388,8 @@
     setText("designation", p.designation, "Your designation");
     setText("company-highlight", p.companyname, "Your company name");
 
-    var cc = (p.countrycode || "+91").replace(/\s/g, "");
-    var phone = (p.phonenumber || "").replace(/\s/g, "");
+    var cc = normalizeCountryCode(p.countrycode || "+91");
+    var phone = getPhoneDigits(p.phonenumber || "");
     var telHref = phone ? "tel:" + cc + phone : "#";
     document.getElementById("btn-tel").href = telHref;
 
@@ -371,14 +422,14 @@
 
     var plEl = document.getElementById("phone-line");
     if (plEl) {
-      plEl.textContent = phone ? cc + " " + phone : "";
+      plEl.textContent = phone ? formatPhoneFull(cc, phone) : "";
       plEl.classList.remove("preview-placeholder");
     }
 
     var waLineVal = (p.whatsupno || phone || "").trim();
     var waEl = document.getElementById("wa-line");
     if (waEl) {
-      waEl.textContent = waLineVal ? cc + " " + waLineVal + " " : "";
+      waEl.textContent = waLineVal ? formatPhoneFull(cc, waLineVal) + " " : "";
       waEl.classList.remove("preview-placeholder");
     }
 

@@ -16,8 +16,10 @@ if (process.env.TRUST_PROXY === "1" || process.env.TRUST_PROXY === "true") {
 const root = __dirname;
 const dataDir = path.join(root, "data");
 const uploadsDir = path.join(root, "uploads");
-const usersFile = path.join(root, "users.json");
-const accountsFile = path.join(root, "accounts.json");
+const legacyUsersFile = path.join(root, "users.json");
+const legacyAccountsFile = path.join(root, "accounts.json");
+const usersFile = path.resolve(root, process.env.USERS_FILE || path.join("data", "users.json"));
+const accountsFile = path.resolve(root, process.env.ACCOUNTS_FILE || path.join("data", "accounts.json"));
 const indexHtmlPath = path.join(root, "index.html");
 const SESSION_COOKIE = "vcard_session";
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 14; // 14 days
@@ -31,6 +33,20 @@ function ensureStorage() {
   try {
     fs.mkdirSync(dataDir, { recursive: true });
     fs.mkdirSync(uploadsDir, { recursive: true });
+    fs.mkdirSync(path.dirname(usersFile), { recursive: true });
+    fs.mkdirSync(path.dirname(accountsFile), { recursive: true });
+
+    // One-time migration path: if root-level JSON exists from older deployments,
+    // move it to the new default data folder unless explicit env paths are used.
+    const usingDefaultUsersPath = usersFile === path.join(root, "data", "users.json");
+    const usingDefaultAccountsPath = accountsFile === path.join(root, "data", "accounts.json");
+    if (usingDefaultUsersPath && !fs.existsSync(usersFile) && fs.existsSync(legacyUsersFile)) {
+      fs.copyFileSync(legacyUsersFile, usersFile);
+    }
+    if (usingDefaultAccountsPath && !fs.existsSync(accountsFile) && fs.existsSync(legacyAccountsFile)) {
+      fs.copyFileSync(legacyAccountsFile, accountsFile);
+    }
+
     if (!fs.existsSync(usersFile)) {
       fs.writeFileSync(usersFile, "[]", "utf8");
     }
@@ -173,7 +189,7 @@ function migrateLegacyDataFilesIfNeeded() {
   });
   if (incoming.length) {
     writeUsers(incoming);
-    console.log(`Migrated ${incoming.length} legacy profile(s) from data/*.json to users.json`);
+    console.log(`Migrated ${incoming.length} legacy profile(s) from data/*.json to ${usersFile}`);
   }
 }
 
@@ -1318,6 +1334,7 @@ app.listen(PORT, () => {
   const base = pub || `http://localhost:${PORT}`;
   console.log(`Digital vCard listening on port ${PORT}`);
   console.log(`  Public URL: ${base}/  |  Builder: ${base}/form`);
+  console.log(`  Data files: users=${usersFile} | accounts=${accountsFile}`);
   if (!process.env.PUBLIC_BASE_URL) {
     console.log(`  Tip: set PUBLIC_BASE_URL=https://ecard.xevonet.com for production card links & QR codes.`);
   }

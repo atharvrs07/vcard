@@ -304,6 +304,158 @@
       color: #64748b;
       text-align: center;
     }
+
+    section.page-section {
+      margin-top: clamp(3rem, 8vw, 5rem);
+    }
+
+    .section-head {
+      margin-bottom: 1.25rem;
+    }
+
+    .section-kicker {
+      display: inline-block;
+      font-size: 0.72rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--accent);
+      font-weight: 600;
+      margin-bottom: 0.55rem;
+    }
+
+    .section-head h2 {
+      margin: 0 0 0.65rem;
+      font-family: "Outfit", sans-serif;
+      font-size: clamp(1.4rem, 2.8vw, 2rem);
+      letter-spacing: -0.02em;
+    }
+
+    .section-head p {
+      margin: 0;
+      color: var(--text-muted);
+      line-height: 1.6;
+      max-width: 62ch;
+    }
+
+    .about-grid {
+      display: grid;
+      gap: 1rem;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      margin-top: 1rem;
+    }
+
+    .soft-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(148, 163, 184, 0.15);
+      border-radius: 16px;
+      padding: 1rem 1.1rem;
+    }
+
+    .soft-card h3 {
+      margin: 0 0 0.35rem;
+      font-size: 1rem;
+      font-weight: 600;
+    }
+
+    .soft-card p {
+      margin: 0;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      line-height: 1.55;
+    }
+
+    .grid-3 {
+      display: grid;
+      gap: 1rem;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      margin-top: 1rem;
+    }
+
+    .pricing-grid {
+      display: grid;
+      gap: 1rem;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      margin-top: 1rem;
+    }
+
+    .price-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      border-radius: 18px;
+      padding: 1.2rem;
+    }
+
+    .price-card.featured {
+      border-color: rgba(56, 189, 248, 0.45);
+      box-shadow: 0 14px 34px rgba(56, 189, 248, 0.12);
+    }
+
+    .price-card h3 {
+      margin: 0 0 0.45rem;
+      font-size: 1.02rem;
+      font-weight: 600;
+    }
+
+    .price {
+      font-family: "Outfit", sans-serif;
+      font-size: 1.45rem;
+      margin-bottom: 0.6rem;
+    }
+
+    .price small {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-family: "DM Sans", sans-serif;
+    }
+
+    .price-card ul {
+      margin: 0;
+      padding-left: 1.1rem;
+      color: var(--text-muted);
+      font-size: 0.88rem;
+      line-height: 1.65;
+    }
+
+    .contact-grid {
+      display: grid;
+      gap: 1rem;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      margin-top: 1rem;
+    }
+
+    .contact-item a {
+      color: #bae6fd;
+      text-decoration: none;
+    }
+
+    .contact-item a:hover {
+      text-decoration: underline;
+    }
+
+    footer.footer-note {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      text-align: left;
+    }
+
+    .footer-links {
+      display: inline-flex;
+      flex-wrap: wrap;
+      gap: 0.8rem;
+      align-items: center;
+    }
+
+    .footer-links a {
+      color: #64748b;
+      text-decoration: none;
+    }
+
+    .footer-links a:hover {
+      color: #94a3b8;
+    }
   </style>
 </head>
 <body>
@@ -315,6 +467,11 @@
         <span>Digital vCard <span style="opacity:0.5;font-weight:500;font-size:0.85em;">· Xevonet</span></span>
       </div>
       <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
+        <a class="secondary-link" href="#about">About</a>
+        <a class="secondary-link" href="#services">Services</a>
+        <a class="secondary-link" href="#features">Features</a>
+        <a class="secondary-link" href="#pricing">Pricing</a>
+        <a class="secondary-link" href="#contact">Contact</a>
         <a class="secondary-link" href="https://xevonet.com" rel="noopener">xevonet.com</a>
         <a class="secondary-link" href="/login">Log in</a>
         <a class="secondary-link" href="/signup" style="color:#e2e8f0;">Sign up</a>
@@ -366,12 +523,142 @@
       </aside>
     </div>
 
-    <p class="footer-note">
-      <a href="https://xevonet.com" rel="noopener" style="color:#64748b;text-decoration:none;">xevonet.com</a>
-      · Card app: <code>ecard.xevonet.com</code>
-      · <a href="/signup" style="color:#64748b;">Builder</a>
-      · <a href="/preview" style="color:#64748b;">Sample</a>
-    </p>
+    <section class="page-section" id="about" aria-labelledby="about-title">
+      <div class="section-head">
+        <span class="section-kicker">About Us</span>
+        <h2 id="about-title">Built by Xevonet for professionals and businesses</h2>
+        <p>
+          Digital vCard helps you replace printed visiting cards with a smart profile you can update anytime.
+          Share one link, keep your details current, and present your brand in a modern way.
+        </p>
+      </div>
+      <div class="about-grid">
+        <article class="soft-card">
+          <h3>Who we serve</h3>
+          <p>Consultants, founders, freelancers, clinics, agencies, and teams that need a clean digital identity.</p>
+        </article>
+        <article class="soft-card">
+          <h3>Our approach</h3>
+          <p>Simple setup, mobile-first design, and practical tools so your card works in real conversations.</p>
+        </article>
+        <article class="soft-card">
+          <h3>Why it matters</h3>
+          <p>No reprints, no outdated details, and no friction when someone asks for your contact instantly.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="page-section" id="services" aria-labelledby="services-title">
+      <div class="section-head">
+        <span class="section-kicker">Services</span>
+        <h2 id="services-title">Everything needed to launch your digital card</h2>
+        <p>From profile creation to publishing and analytics, the platform is designed as an end-to-end workflow.</p>
+      </div>
+      <div class="grid-3">
+        <article class="soft-card">
+          <h3>Card Setup</h3>
+          <p>Create your page with identity, contact info, social links, services, gallery, and videos.</p>
+        </article>
+        <article class="soft-card">
+          <h3>Publishing & Sharing</h3>
+          <p>Get your shareable URL and use QR-ready links for meetings, events, WhatsApp, and social bios.</p>
+        </article>
+        <article class="soft-card">
+          <h3>Maintenance & Updates</h3>
+          <p>Edit anytime from your dashboard so your profile always reflects your latest details.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="page-section" id="features" aria-labelledby="features-title">
+      <div class="section-head">
+        <span class="section-kicker">Features</span>
+        <h2 id="features-title">Designed to convert profile views into real actions</h2>
+        <p>Give visitors clear actions like call, WhatsApp, map directions, and social follow in one place.</p>
+      </div>
+      <div class="grid-3">
+        <article class="soft-card">
+          <h3>Live Preview Builder</h3>
+          <p>See updates instantly while editing, so you can fine-tune before publishing.</p>
+        </article>
+        <article class="soft-card">
+          <h3>Media-rich Profile</h3>
+          <p>Add logo, service images, gallery photos, videos, and payment details for better trust.</p>
+        </article>
+        <article class="soft-card">
+          <h3>Analytics-ready Dashboard</h3>
+          <p>Track saved cards and view counts to understand profile reach and engagement.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="page-section" id="pricing" aria-labelledby="pricing-title">
+      <div class="section-head">
+        <span class="section-kicker">Pricing</span>
+        <h2 id="pricing-title">Simple, transparent plans</h2>
+        <p>Start quickly and scale when needed. Taxes and payment gateway charges apply where relevant.</p>
+      </div>
+      <div class="pricing-grid">
+        <article class="price-card featured">
+          <h3>Digital vCard Plan</h3>
+          <div class="price">₹3,000 <small>+ GST</small></div>
+          <ul>
+            <li>One fully published digital visiting card on your shareable URL</li>
+            <li>Identity profile with logo, name, designation, contact, and map link</li>
+            <li>Social links, custom links, and click-ready actions (call, WhatsApp, email)</li>
+            <li>Services section with text, images, and optional action links</li>
+            <li>Gallery and video support for product/service showcase</li>
+            <li>Payment section (Google Pay / Paytm details and QR image)</li>
+            <li>Live preview editor with save-and-update from dashboard anytime</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section class="page-section" id="contact" aria-labelledby="contact-title">
+      <div class="section-head">
+        <span class="section-kicker">Contact Us</span>
+        <h2 id="contact-title">Need help with setup or custom requirements?</h2>
+        <p>Our team can assist with onboarding, business plans, and deployment questions.</p>
+      </div>
+      <div class="contact-grid">
+        <article class="soft-card contact-item">
+          <h3>Email</h3>
+          <p><a href="mailto:hello@xevonet.com">hello@xevonet.com</a></p>
+          <p style="margin-top:0.55rem;">
+            <a class="btn btn-ghost" href="mailto:hello@xevonet.com?subject=Digital%20vCard%20Enquiry&amp;body=Hi%20Xevonet%20team%2C%0A%0AI%20want%20to%20know%20more%20about%20the%20Digital%20vCard%20plan.%0A%0AThanks.">
+              <i class="fa fa-envelope-o"></i> Send Email
+            </a>
+          </p>
+        </article>
+        <article class="soft-card contact-item">
+          <h3>Website</h3>
+          <p><a href="https://xevonet.com" rel="noopener">https://xevonet.com</a></p>
+        </article>
+        <article class="soft-card contact-item">
+          <h3>Product URL</h3>
+          <p><a href="https://ecard.xevonet.com" rel="noopener">https://ecard.xevonet.com</a></p>
+        </article>
+      </div>
+    </section>
+
+    <footer class="footer-note">
+      <div>© <span id="year-now"></span> Xevonet. All rights reserved.</div>
+      <div class="footer-links">
+        <a href="#about">About</a>
+        <a href="#services">Services</a>
+        <a href="#features">Features</a>
+        <a href="#pricing">Pricing</a>
+        <a href="#contact">Contact</a>
+        <a href="/signup">Builder</a>
+      </div>
+    </footer>
   </div>
+  <script>
+    (function () {
+      var y = document.getElementById("year-now");
+      if (y) y.textContent = String(new Date().getFullYear());
+    })();
+  </script>
 </body>
 </html>
