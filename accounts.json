@@ -1,0 +1,47 @@
+[
+  {
+    "id": "c794b92a40015b3bc50092bf",
+    "name": "Atharv",
+    "email": "blacktechguy6@gmail.com",
+    "password_salt": "2e6a8a956deca9da4fc52c119619a99e",
+    "password_hash": "fac5b523c97a1f0ce55991285d20f722017130ea7a163f50075a2285c113b365565a76241881b224f6dea1fbe75e904bf57cb4454c72047b301a83cf0fca5c52",
+    "cards": [
+      {
+        "slug": "test",
+        "profile_link": "/test",
+        "saved_at": "2026-04-14T07:22:09.418Z"
+      }
+    ],
+    "created_at": "2026-04-14T07:20:25.922Z"
+  },
+  {
+    "id": "a59d75725063dbfbd50de128",
+    "name": "Atharv Raj Sharma",
+    "email": "atharvrs2010@gmail.com",
+    "password_salt": "9c21afb5d1418bdd5bcef6674d0d279a",
+    "password_hash": "07dabfac22f830c5aac73a97cb60e02c6cb2641e08e184aebc35e98da5a25a95167a293be7fbfc7b258e52c3ae1afec69e2e796bbfe1ea123d9bd488b9a8ecee",
+    "cards": [
+      {
+        "slug": "test2",
+        "profile_link": "/test2",
+        "saved_at": "2026-04-15T11:07:19.095Z"
+      }
+    ],
+    "created_at": "2026-04-14T07:36:51.936Z"
+  },
+  {
+    "id": "2405c7372cb7f19b70be8c3f",
+    "name": "Amit Sabharwal",
+    "email": "amit@liger-consulting.com",
+    "password_salt": "868bb734a8e11ff46fe36641934b022e",
+    "password_hash": "9b3070625e2e6a2feddfff70423934280f605ba2c6e226dd2d2c5cae281796f258c100f2248929ffc8ffe4dfcf2000db4a64c49f777ed49349ee0aa0efc2ee9a",
+    "cards": [
+      {
+        "slug": "amit-sabharwal",
+        "profile_link": "/amit-sabharwal",
+        "saved_at": "2026-04-16T14:20:11.870Z"
+      }
+    ],
+    "created_at": "2026-04-15T13:46:10.018Z"
+  }
+]
