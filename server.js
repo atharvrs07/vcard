@@ -1133,7 +1133,9 @@ function handlePublish(req, res) {
   const signature = req.body.razorpay_signature;
 
   if (!isValidSlug(slug)) {
-    return res.status(400).json({ error: "Invalid or reserved card URL (use lowercase letters, numbers, hyphens)." });
+    return res
+      .status(400)
+      .json({ error: "Invalid or reserved card URL (use lowercase letters, numbers, hyphens)." });
   }
   if (typeof profile === "string") {
     try {
@@ -1146,24 +1148,38 @@ function handlePublish(req, res) {
     return res.status(400).json({ error: "Missing profile" });
   }
 
-  if (secret) {
-    if (!paymentId || !orderId || !signature) {
-      return res.status(400).json({ error: "Missing payment details" });
+  // If a card with this slug already exists for this same account, treat this as
+  // an edit-without-payment: delete/replace the old card instead of requiring
+  // a new Razorpay payment.
+  const existingForSlug = findUserBySlug(slug);
+  const isOwnedExisting =
+    existingForSlug &&
+    existingForSlug.user &&
+    String((existingForSlug.user && existingForSlug.user.owner_account_id) || "") ===
+      String((req.account && req.account.id) || "");
+  const isEditWithoutPayment = !!isOwnedExisting;
+
+  if (!isEditWithoutPayment) {
+    if (secret) {
+      if (!paymentId || !orderId || !signature) {
+        return res.status(400).json({ error: "Missing payment details" });
+      }
+      if (!verifyRazorpaySignature(orderId, paymentId, signature, secret)) {
+        return res.status(400).json({ error: "Invalid payment signature" });
+      }
+    } else if (!allowInsecure) {
+      return res.status(503).json({
+        error:
+          "Server must set RAZORPAY_KEY_SECRET to verify payments, or ALLOW_INSECURE_PUBLISH=1 for local testing only.",
+      });
     }
-    if (!verifyRazorpaySignature(orderId, paymentId, signature, secret)) {
-      return res.status(400).json({ error: "Invalid payment signature" });
-    }
-  } else if (!allowInsecure) {
-    return res.status(503).json({
-      error:
-        "Server must set RAZORPAY_KEY_SECRET to verify payments, or ALLOW_INSECURE_PUBLISH=1 for local testing only.",
-    });
   }
 
   delete profile.__preview;
   delete profile.custom_domain;
   delete profile.custom_path;
-  if (slugExists(slug)) {
+  const exists = slugExists(slug);
+  if (exists && !isEditWithoutPayment) {
     return res.status(409).json({
       error: "This card URL is already taken.",
       suggestions: suggestAvailableSlugs(slug),
@@ -1176,17 +1192,44 @@ function handlePublish(req, res) {
   profile.owner_account_id = req.account.id;
 
   try {
-    const users = readUsers();
-    users.push(profile);
-    writeUsers(users);
+    if (isEditWithoutPayment && existingForSlug && existingForSlug.idx >= 0) {
+      // Replace existing card owned by this account (delete old + create new).
+      const users = existingForSlug.users || readUsers();
+      const prev = existingForSlug.user || {};
+      const idx = existingForSlug.idx;
+      const nextProfile = {
+        ...prev,
+        ...profile,
+        card_slug: slug,
+        owner_account_id: prev.owner_account_id || req.account.id,
+        profile_link: buildCardUrl(req, slug),
+        view_count: 0,
+      };
+      users[idx] = nextProfile;
+      writeUsers(users);
+      profile = nextProfile;
+    } else {
+      const users = readUsers();
+      users.push(profile);
+      writeUsers(users);
+    }
+
     const foundAccount = findAccountById(req.account.id);
     if (foundAccount.idx >= 0 && foundAccount.account) {
       const cards = Array.isArray(foundAccount.account.cards) ? foundAccount.account.cards : [];
-      cards.push({
+      const cardRow = {
         slug,
         profile_link: profile.profile_link,
         saved_at: new Date().toISOString(),
-      });
+      };
+      const existingCardIdx = cards.findIndex(
+        (c) => String((c && c.slug) || "").trim().toLowerCase() === slug
+      );
+      if (existingCardIdx >= 0) {
+        cards[existingCardIdx] = { ...(cards[existingCardIdx] || {}), ...cardRow };
+      } else {
+        cards.push(cardRow);
+      }
       foundAccount.account.cards = cards;
       foundAccount.accounts[foundAccount.idx] = foundAccount.account;
       writeAccounts(foundAccount.accounts);
