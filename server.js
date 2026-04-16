@@ -870,7 +870,7 @@ app.get("/my-cards/:slug", authRequired, (req, res) => {
   res.json({ card });
 });
 
-app.put("/my-cards/:slug", authRequired, (req, res) => {
+function updateOwnedCardHandler(req, res) {
   const slug = String(req.params.slug || "").trim().toLowerCase();
   const found = getOwnedCardOrError(req, res, slug);
   if (!found) return;
@@ -929,7 +929,10 @@ app.put("/my-cards/:slug", authRequired, (req, res) => {
   }
 
   res.json({ ok: true, card: updated });
-});
+}
+
+app.put("/my-cards/:slug", authRequired, updateOwnedCardHandler);
+app.post("/my-cards/:slug/edit", authRequired, updateOwnedCardHandler);
 
 app.delete("/my-cards/:slug", authRequired, (req, res) => {
   const slug = String(req.params.slug || "").trim().toLowerCase();

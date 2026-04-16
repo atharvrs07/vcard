@@ -391,6 +391,24 @@
     });
   }
 
+  function saveEditWithFallback(slug, payload) {
+    var endpoint = "/my-cards/" + encodeURIComponent(slug) + "/edit";
+    return fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ profile: payload }),
+    }).then(function (r) {
+      if (r.status !== 403) return r;
+      var params = new URLSearchParams();
+      params.set("profile", JSON.stringify(payload || {}));
+      return fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+        body: params.toString(),
+      });
+    });
+  }
+
   var sendPreviewDebounced = debounce(sendPreview, 120);
 
   function addServiceRow(title, imgUrl, linkUrl, description) {
@@ -834,11 +852,7 @@
       var payload = profileForExport();
       payload.card_slug = slug;
       payload.profile_link = getPublicOrigin() + "/" + slug;
-      fetch("/my-cards/" + encodeURIComponent(slug), {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ profile: payload }),
-      })
+      saveEditWithFallback(slug, payload)
         .then(function (r) {
           return readJsonResponse(r).then(function (data) {
             if (!r.ok) throw new Error(data.error || "Could not update card.");
